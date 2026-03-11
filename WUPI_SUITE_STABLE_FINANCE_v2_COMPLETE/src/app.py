@@ -182,12 +182,6 @@ def color_to_canon_key(s: str) -> str:
     if not t:
         return ""
     return COLOR_ALIAS_MAP.get(t, t)
-    for canon, aliases in COLOR_ALIAS_TO_CANON.items():
-        for a in aliases:
-            if _norm_key(a) == t:
-                return canon
-    return t
-
 
 # -------------------------
 # Helpers
