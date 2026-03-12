@@ -1694,7 +1694,7 @@ if items:
                 c.drawString(bx, y, txt)
                 y -= 9
 
-        c.showPage()
+         c.showPage()
 
     c.save()
     buf.seek(0)
