@@ -1620,46 +1620,47 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
         if has_incisioni:
             box_w = 82 * mm_to_pt
             pills_max_w = (w - 2 * margin - 12 * mm_to_pt - box_w - 10 * mm_to_pt)
-# Pills taglie
-items = _parse_taglie_items(taglie)
-cur_x = pills_left_x
 
-if items:
-    pill_font_regular = 16
-    pill_font_bold = 16
-    pill_h = 24
-    pill_radius = 10
-    pad_x = 10
-    gap_inner = 8
-    gap_between = 10
-    text_y = pills_y + 3
+        # Pills taglie
+        items = _parse_taglie_items(taglie)
+        cur_x = pills_left_x
 
-    for taglia, qty in items:
-        taglia_txt = str(taglia)
-        qty_txt = str(qty)
+        if items:
+            pill_font_regular = 16
+            pill_font_bold = 16
+            pill_h = 24
+            pill_radius = 10
+            pad_x = 10
+            gap_inner = 8
+            gap_between = 10
+            text_y = pills_y + 3
 
-        c.setFont("Helvetica", pill_font_regular)
-        w1 = c.stringWidth(taglia_txt, "Helvetica", pill_font_regular)
+            for taglia, qty in items:
+                taglia_txt = str(taglia)
+                qty_txt = str(qty)
 
-        c.setFont("Helvetica-Bold", pill_font_bold)
-        w2 = c.stringWidth(qty_txt, "Helvetica-Bold", pill_font_bold)
+                c.setFont("Helvetica", pill_font_regular)
+                w1 = c.stringWidth(taglia_txt, "Helvetica", pill_font_regular)
 
-        pw = w1 + w2 + (pad_x * 2) + gap_inner
+                c.setFont("Helvetica-Bold", pill_font_bold)
+                w2 = c.stringWidth(qty_txt, "Helvetica-Bold", pill_font_bold)
 
-        if cur_x + pw > pills_left_x + pills_max_w:
-            break
+                pw = w1 + w2 + (pad_x * 2) + gap_inner
 
-        c.setFillGray(0.92)
-        c.roundRect(cur_x, pills_y - 8, pw, pill_h, pill_radius, stroke=0, fill=1)
-        c.setFillGray(0)
+                if cur_x + pw > pills_left_x + pills_max_w:
+                    break
 
-        c.setFont("Helvetica", pill_font_regular)
-        c.drawString(cur_x + pad_x, text_y, taglia_txt)
+                c.setFillGray(0.92)
+                c.roundRect(cur_x, pills_y - 8, pw, pill_h, pill_radius, stroke=0, fill=1)
+                c.setFillGray(0)
 
-        c.setFont("Helvetica-Bold", pill_font_bold)
-        c.drawString(cur_x + pad_x + w1 + gap_inner, text_y, qty_txt)
+                c.setFont("Helvetica", pill_font_regular)
+                c.drawString(cur_x + pad_x, text_y, taglia_txt)
 
-        cur_x += pw + gap_between
+                c.setFont("Helvetica-Bold", pill_font_bold)
+                c.drawString(cur_x + pad_x + w1 + gap_inner, text_y, qty_txt)
+
+                cur_x += pw + gap_between
 
         # Personalizzazioni a destra, senza riquadro
         if has_incisioni:
@@ -1693,11 +1694,13 @@ if items:
 
                 c.drawString(bx, y, txt)
                 y -= 9
-                c.showPage()
+        
+        # Genera la pagina alla fine dell'elaborazione della singola variante (iterrows)
+        c.showPage()
 
-        c.save()
-        buf.seek(0)
-        return buf.getvalue()
+    c.save()
+    buf.seek(0)
+    return buf.getvalue()
 
 
 def finance_summary(df_norm: pd.DataFrame, costs: Dict[str, float] | None = None):
