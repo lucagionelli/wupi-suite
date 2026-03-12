@@ -1237,51 +1237,48 @@ def product_model_key(nome_prodotto: str) -> str:
     return part_low
 
 def find_mockup_bytes(mock_map: dict, sku_key: str, model_key: str, col_key: str, side: str) -> bytes | None:
-    """More permissive lookup.
+    """
+    Strict lookup for mockups.
 
     Priority:
-      1) exact (sku, model, color, side)
-      2) exact with empty model
-      3) fuzzy model (contains / contained) on same sku+color+side
-      4) accept 'side-less' files (side=='') for both fronte/retro
+    1) SKU + MODEL + COLOR + SIDE
+    2) SKU + COLOR + SIDE (only if model not found anywhere)
+    3) SKU + MODEL + COLOR (side-less)
+    4) SKU + COLOR (side-less)
+
+    This prevents wrong matches between different models sharing same SKU/color.
     """
+
     side = side or ""
     model_key = model_key or ""
-    # direct hits
-    for k in [
-        (sku_key, model_key, col_key, side),
-        (sku_key, "", col_key, side),
-    ]:
+
+    # 1️⃣ exact match with model
+    k = (sku_key, model_key, col_key, side)
+    if k in mock_map:
+        return mock_map[k]
+
+    # 2️⃣ check if model exists in uploaded mockups
+    model_exists = any(
+        s == sku_key and mk == model_key and ck == col_key
+        for (s, mk, ck, sd) in mock_map.keys()
+    )
+
+    # fallback only if model does not exist
+    if not model_exists:
+        k = (sku_key, "", col_key, side)
         if k in mock_map:
             return mock_map[k]
-    # accept sideless as fallback
-    if side:
-        for k in [
-            (sku_key, model_key, col_key, ""),
-            (sku_key, "", col_key, ""),
-        ]:
-            if k in mock_map:
-                return mock_map[k]
-    # fuzzy model scan
-    candidates = []
-    for (s, mk, ck, sd), b in mock_map.items():
-        if s != sku_key or ck != col_key:
-            continue
-        if sd not in (side, ""):
-            continue
-        if not model_key:
-            # if we don't have model from Excel, accept any
-            candidates.append(((mk != ""), b))
-            continue
-        if not mk:
-            candidates.append(((False), b))
-            continue
-        if mk in model_key or model_key in mk:
-            candidates.append(((True), b))
-    if candidates:
-        # prefer a model match if possible
-        candidates.sort(key=lambda x: (x[0] is True), reverse=True)
-        return candidates[0][1]
+
+    # 3️⃣ side-less with model
+    k = (sku_key, model_key, col_key, "")
+    if k in mock_map:
+        return mock_map[k]
+
+    # 4️⃣ side-less generic
+    k = (sku_key, "", col_key, "")
+    if k in mock_map:
+        return mock_map[k]
+
     return None
 
 
@@ -1493,6 +1490,7 @@ def _draw_image_fit(c: canvas.Canvas, img_bytes: bytes, x: float, y: float, w: f
 
 
 def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, brand_logo: bytes | None = None) -> bytes:
+
     w, h = landscape(A3)
     mm_to_pt = mm
 
@@ -1510,30 +1508,53 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
             logo_img = None
 
     for _, r in variants.iterrows():
+
         sku = str(r.get("SKU", ""))
         sku_base = _sku_base(sku)
+
         sku_key = str(r.get("SKU_KEY", _norm_key(sku_base)))
         prod = str(r.get("Nome Prodotto", ""))
         model_key = str(r.get("MODEL_KEY", product_model_key(prod)))
+
         col = str(r.get("Colore", ""))
         col_key = str(r.get("COL_KEY", _norm_key(col)))
+
         taglie = str(r.get("Taglie", ""))
         incisioni = str(r.get("Incisioni", ""))
+
         totale = int(r.get("Totale", 0))
 
         header_h = 24 * mm_to_pt
-        caption_h = 40 * mm_to_pt if clean_str(incisioni) else 30 * mm_to_pt
+        footer_h = 35 * mm_to_pt
 
         if logo_img:
-            c.drawImage(logo_img, margin, h - margin - 16 * mm_to_pt, width=26 * mm_to_pt, height=16 * mm_to_pt, preserveAspectRatio=True, mask="auto")
+            c.drawImage(
+                logo_img,
+                margin,
+                h - margin - 16 * mm_to_pt,
+                width=26 * mm_to_pt,
+                height=16 * mm_to_pt,
+                preserveAspectRatio=True,
+                mask="auto",
+            )
 
         c.setFont("Helvetica-Bold", cfg.header_pt)
-        c.drawString(margin + (32 * mm_to_pt if logo_img else 0), h - margin - 10 * mm_to_pt, f"{sku_base} — {prod}")
-        c.drawRightString(w - margin, h - margin - 10 * mm_to_pt, f"{col}")
+        c.drawString(
+            margin + (32 * mm_to_pt if logo_img else 0),
+            h - margin - 10 * mm_to_pt,
+            f"{sku_base} — {prod}",
+        )
 
-        img_y0 = margin + caption_h + gap
+        c.drawRightString(
+            w - margin,
+            h - margin - 10 * mm_to_pt,
+            f"{col}",
+        )
+
+        img_y0 = margin + footer_h + gap
         img_h = h - margin - header_h - img_y0
         img_w = (w - 2 * margin - gap) / 2
+
         box1 = (margin, img_y0, img_w, img_h)
         box2 = (margin + img_w + gap, img_y0, img_w, img_h)
 
@@ -1542,42 +1563,81 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
 
         if front:
             _draw_image_fit(c, front, *box1)
-        elif cfg.show_missing_boxes:
-            c.setLineWidth(1)
-            c.rect(*box1)
-            c.setFont("Helvetica", 14)
-            c.drawCentredString(box1[0] + box1[2] / 2, box1[1] + box1[3] / 2, "FRONTE MANCANTE")
 
         if back:
             _draw_image_fit(c, back, *box2)
-        elif cfg.show_missing_boxes:
-            c.setLineWidth(1)
-            c.rect(*box2)
-            c.setFont("Helvetica", 14)
-            c.drawCentredString(box2[0] + box2[2] / 2, box2[1] + box2[3] / 2, "RETRO MANCANTE")
 
+        # footer background
         c.setFillGray(0.96)
-        c.rect(margin, margin, w - 2 * margin, caption_h, stroke=0, fill=1)
+        c.rect(margin, margin, w - 2 * margin, footer_h, stroke=0, fill=1)
         c.setFillGray(0)
 
+        # header footer
         c.setFont("Helvetica-Bold", cfg.caption_pt)
-        c.drawString(margin + 6 * mm_to_pt, margin + caption_h - 8 * mm_to_pt, f"SKU: {sku_base}   Colore: {col}   Totale: {totale}")
 
+        c.drawString(
+            margin + 6 * mm_to_pt,
+            margin + footer_h - 8 * mm_to_pt,
+            f"SKU: {sku_base}   Colore: {col}   Totale: {totale}",
+        )
+
+        # TAGLIE PILLS
         items = _parse_taglie_items(taglie)
-        pills_y = margin + caption_h - 16 * mm_to_pt
-        end_y = pills_y
-        if items:
-            end_y = _draw_pills_line(c, margin + 6 * mm_to_pt, pills_y, items, max_w=w - 2*margin - 12*mm_to_pt, font_pt=max(8.5, cfg.caption_pt - 1))
-        else:
-            c.setFont("Helvetica", max(8.0, cfg.caption_pt - 1))
-            c.drawString(margin + 6 * mm_to_pt, pills_y - 2 * mm_to_pt, "UNICA")
-            end_y = pills_y
 
+        pills_y = margin + footer_h - 16 * mm_to_pt
+
+        if items:
+
+            cur_x = margin + 6 * mm_to_pt
+
+            for taglia, qty in items:
+
+                label1 = taglia
+                label2 = str(qty)
+
+                c.setFont("Helvetica", 10)
+                w1 = c.stringWidth(label1)
+
+                c.setFont("Helvetica-Bold", 10)
+                w2 = c.stringWidth(label2)
+
+                pw = w1 + w2 + 10 * mm_to_pt
+
+                c.setFillGray(0.92)
+                c.roundRect(cur_x, pills_y - 5, pw, 12, 6, stroke=0, fill=1)
+
+                c.setFillGray(0)
+
+                c.setFont("Helvetica", 10)
+                c.drawString(cur_x + 6, pills_y, label1)
+
+                c.setFont("Helvetica-Bold", 10)
+                c.drawString(cur_x + 6 + w1 + 6, pills_y, label2)
+
+                cur_x += pw + 8
+
+        # PERSONALIZZAZIONI
         if clean_str(incisioni):
-            label_y = end_y - 5 * mm_to_pt
-            c.setFont("Helvetica-Bold", max(8.0, cfg.caption_pt - 1))
-            c.drawString(margin + 6 * mm_to_pt, label_y, "Nome incisione")
-            _draw_multiline(c, incisioni, margin + 42 * mm_to_pt, label_y, w - 2*margin - 48*mm_to_pt, font_name="Helvetica", font_pt=max(7.2, cfg.caption_pt - 2), leading=3.5 * mm_to_pt)
+
+            box_w = 80 * mm_to_pt
+            box_h = footer_h - 12 * mm_to_pt
+
+            bx = w - margin - box_w
+            by = margin + 6 * mm_to_pt
+
+            c.setFillGray(1)
+            c.rect(bx, by, box_w, box_h, stroke=1, fill=0)
+
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(bx + 6, by + box_h - 10, "Personalizzazioni")
+
+            y = by + box_h - 20
+
+            c.setFont("Helvetica", 9)
+
+            for line in incisioni.split("\n"):
+                c.drawString(bx + 6, y, line)
+                y -= 10
 
         c.showPage()
 
