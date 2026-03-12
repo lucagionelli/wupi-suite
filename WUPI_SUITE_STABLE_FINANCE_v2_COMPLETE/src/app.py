@@ -1693,12 +1693,11 @@ if items:
 
                 c.drawString(bx, y, txt)
                 y -= 9
+                c.showPage()
 
-            c.showPage()
-
-            c.save()
-            buf.seek(0)
-    return buf.getvalue()
+        c.save()
+        buf.seek(0)
+        return buf.getvalue()
 
 
 def finance_summary(df_norm: pd.DataFrame, costs: Dict[str, float] | None = None):
