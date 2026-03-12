@@ -1613,7 +1613,7 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
         c.rect(margin, margin, w - 2 * margin, footer_h, stroke=0, fill=1)
         c.setFillGray(0)
 
-        c.setFont("Helvetica-Bold", cfg.caption_pt)
+        c.setFont("Helvetica-Bold", cfg.caption_pt * 1.5)
         c.drawString(
             margin + 6 * mm_to_pt,
             margin + footer_h - 8 * mm_to_pt,
@@ -1636,27 +1636,27 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
 
         if items:
             for taglia, qty in items:
-                c.setFont("Helvetica", 10)
-                w1 = c.stringWidth(str(taglia), "Helvetica", 10)
+                c.setFont("Helvetica", 16)
+                w1 = c.stringWidth(str(taglia), "Helvetica", 16)
 
-                c.setFont("Helvetica-Bold", 10)
-                w2 = c.stringWidth(str(qty), "Helvetica-Bold", 10)
+                c.setFont("Helvetica-Bold", 16)
+                w2 = c.stringWidth(str(qty), "Helvetica-Bold", 16)
 
-                pw = w1 + w2 + 12
-                ph = 12
+                pw = w1 + w2 + 18
+                ph = 18
 
                 if cur_x + pw > pills_left_x + pills_max_w:
                     break
 
                 c.setFillGray(0.92)
-                c.roundRect(cur_x, pills_y - 4, pw, ph, 6, stroke=0, fill=1)
+                c.roundRect(cur_x, pills_y - 7, pw, ph, 8, stroke=0, fill=1)
                 c.setFillGray(0)
 
-                c.setFont("Helvetica", 10)
-                c.drawString(cur_x + 5, pills_y, str(taglia))
+                c.setFont("Helvetica", 16)
+                c.drawString(cur_x + 7, pills_y + 1, str(taglia))
 
-                c.setFont("Helvetica-Bold", 10)
-                c.drawString(cur_x + 5 + w1 + 6, pills_y, str(qty))
+                c.setFont("Helvetica-Bold", 16)
+                c.drawString(cur_x + 7 + w1 + 8, pills_y + 1, str(qty))
 
                 cur_x += pw + 8
 
@@ -1667,7 +1667,7 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
             box_h = footer_h - 10 * mm_to_pt
 
             c.setFillGray(0)
-            c.setFont("Helvetica-Bold", 10)
+            c.setFont("Helvetica-Bold", 16)
             c.drawString(bx, by + box_h - 8, "Personalizzazioni")
 
             y = by + box_h - 18
