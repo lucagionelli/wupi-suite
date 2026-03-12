@@ -1238,43 +1238,34 @@ def product_model_key(nome_prodotto: str) -> str:
 
 def find_mockup_bytes(mock_map: dict, sku_key: str, model_key: str, col_key: str, side: str) -> bytes | None:
     """
-    Strict lookup for mockups.
+    Strict lookup:
+    1) exact SKU + MODEL + COLOR + SIDE
+    2) exact SKU + EMPTY_MODEL + COLOR + SIDE
+    3) exact SKU + MODEL + COLOR + SIDELESS
+    4) exact SKU + EMPTY_MODEL + COLOR + SIDELESS
 
-    Priority:
-    1) SKU + MODEL + COLOR + SIDE
-    2) SKU + COLOR + SIDE (only if model not found anywhere)
-    3) SKU + MODEL + COLOR (side-less)
-    4) SKU + COLOR (side-less)
-
-    This prevents wrong matches between different models sharing same SKU/color.
+    Never use another model as fallback.
     """
 
     side = side or ""
-    model_key = model_key or ""
+    model_key = (model_key or "").strip()
 
-    # 1️⃣ exact match with model
+    # 1. exact with model
     k = (sku_key, model_key, col_key, side)
     if k in mock_map:
         return mock_map[k]
 
-    # 2️⃣ check if model exists in uploaded mockups
-    model_exists = any(
-        s == sku_key and mk == model_key and ck == col_key
-        for (s, mk, ck, sd) in mock_map.keys()
-    )
+    # 2. generic only if filename has no model
+    k = (sku_key, "", col_key, side)
+    if k in mock_map:
+        return mock_map[k]
 
-    # fallback only if model does not exist
-    if not model_exists:
-        k = (sku_key, "", col_key, side)
-        if k in mock_map:
-            return mock_map[k]
-
-    # 3️⃣ side-less with model
+    # 3. side-less exact with model
     k = (sku_key, model_key, col_key, "")
     if k in mock_map:
         return mock_map[k]
 
-    # 4️⃣ side-less generic
+    # 4. side-less generic only if filename has no model
     k = (sku_key, "", col_key, "")
     if k in mock_map:
         return mock_map[k]
@@ -1629,36 +1620,46 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
         if has_incisioni:
             box_w = 82 * mm_to_pt
             pills_max_w = (w - 2 * margin - 12 * mm_to_pt - box_w - 10 * mm_to_pt)
+# Pills taglie
+items = _parse_taglie_items(taglie)
+cur_x = pills_left_x
 
-        # Pills taglie
-        items = _parse_taglie_items(taglie)
-        cur_x = pills_left_x
+if items:
+    pill_font_regular = 16
+    pill_font_bold = 16
+    pill_h = 24
+    pill_radius = 10
+    pad_x = 10
+    gap_inner = 8
+    gap_between = 10
+    text_y = pills_y + 3
 
-        if items:
-            for taglia, qty in items:
-                c.setFont("Helvetica", 16)
-                w1 = c.stringWidth(str(taglia), "Helvetica", 16)
+    for taglia, qty in items:
+        taglia_txt = str(taglia)
+        qty_txt = str(qty)
 
-                c.setFont("Helvetica-Bold", 16)
-                w2 = c.stringWidth(str(qty), "Helvetica-Bold", 16)
+        c.setFont("Helvetica", pill_font_regular)
+        w1 = c.stringWidth(taglia_txt, "Helvetica", pill_font_regular)
 
-                pw = w1 + w2 + 18
-                ph = 18
+        c.setFont("Helvetica-Bold", pill_font_bold)
+        w2 = c.stringWidth(qty_txt, "Helvetica-Bold", pill_font_bold)
 
-                if cur_x + pw > pills_left_x + pills_max_w:
-                    break
+        pw = w1 + w2 + (pad_x * 2) + gap_inner
 
-                c.setFillGray(0.92)
-                c.roundRect(cur_x, pills_y - 7, pw, ph, 8, stroke=0, fill=1)
-                c.setFillGray(0)
+        if cur_x + pw > pills_left_x + pills_max_w:
+            break
 
-                c.setFont("Helvetica", 16)
-                c.drawString(cur_x + 7, pills_y + 1, str(taglia))
+        c.setFillGray(0.92)
+        c.roundRect(cur_x, pills_y - 8, pw, pill_h, pill_radius, stroke=0, fill=1)
+        c.setFillGray(0)
 
-                c.setFont("Helvetica-Bold", 16)
-                c.drawString(cur_x + 7 + w1 + 8, pills_y + 1, str(qty))
+        c.setFont("Helvetica", pill_font_regular)
+        c.drawString(cur_x + pad_x, text_y, taglia_txt)
 
-                cur_x += pw + 8
+        c.setFont("Helvetica-Bold", pill_font_bold)
+        c.drawString(cur_x + pad_x + w1 + gap_inner, text_y, qty_txt)
+
+        cur_x += pw + gap_between
 
         # Personalizzazioni a destra, senza riquadro
         if has_incisioni:
