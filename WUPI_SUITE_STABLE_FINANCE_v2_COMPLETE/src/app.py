@@ -1438,23 +1438,46 @@ def bibbia_variants(df_norm: pd.DataFrame) -> pd.DataFrame:
         bd["Taglie"] = ""
 
     tmp = d.copy()
-    tmp["INC_SHOW"] = tmp["Nome incisione"].map(clean_str).replace("", "NEUTRO")
+    tmp["INC_RAW"] = tmp["Nome incisione"].map(clean_str)
     tmp["ORD_SHOW"] = tmp["N. Ordine"].map(clean_str)
     tmp["CLS_SHOW"] = tmp["Classe"].map(clean_str)
     tmp.loc[tmp["CLS_SHOW"].eq(""), "CLS_SHOW"] = "Docenti / ATA"
 
     def fmt_incisioni(g: pd.DataFrame) -> str:
-        agg = g.groupby(["INC_SHOW", "ORD_SHOW", "CLS_SHOW"], as_index=False)["Pezzi"].sum()
-        agg["_ord"] = agg["INC_SHOW"].eq("NEUTRO").astype(int)
-        agg = agg.sort_values(["_ord", "INC_SHOW", "ORD_SHOW", "CLS_SHOW"], kind="stable")
+        g = g.copy()
+
+        # Se non esiste nessuna incisione vera, non mostrare nulla
+        personalizzati = g[g["INC_RAW"].ne("")]
+        if personalizzati.empty:
+            return ""
+
+        neutri_qty = int(g[g["INC_RAW"].eq("")]["Pezzi"].sum())
+        pers_qty = int(personalizzati["Pezzi"].sum())
+
         rows = []
+        rows.append(f"Neutri: {neutri_qty} pz")
+        rows.append(f"Personalizzati: {pers_qty} pz")
+
+        agg = (
+            personalizzati.groupby(["ORD_SHOW", "CLS_SHOW", "INC_RAW"], as_index=False)["Pezzi"].sum()
+            .sort_values(["ORD_SHOW", "CLS_SHOW", "INC_RAW"], kind="stable")
+        )
+
         for _, r in agg.iterrows():
-            inc = clean_str(r["INC_SHOW"])
-            qty = int(r["Pezzi"])
             ordn = clean_str(r["ORD_SHOW"])
             cls = clean_str(r["CLS_SHOW"])
-            tail = " · ".join([x for x in [f"Ord. {ordn}" if ordn else "", cls] if x])
-            rows.append(f"{inc} ({qty})" + (f" — {tail}" if tail else ""))
+            inc = clean_str(r["INC_RAW"])
+            qty = int(r["Pezzi"])
+
+            left = f"#{ordn}" if ordn else ""
+            mid = cls if cls else ""
+            base = " · ".join([x for x in [left, mid, inc] if x])
+
+            if qty > 1:
+                rows.append(f"{base} ({qty})")
+            else:
+                rows.append(base)
+
         return "\n".join(rows)
 
     inc = tmp.groupby(["SKU", "Nome Prodotto", "Colore"], as_index=False).apply(fmt_incisioni)
@@ -1469,8 +1492,18 @@ def bibbia_variants(df_norm: pd.DataFrame) -> pd.DataFrame:
         d.groupby(["SKU", "Nome Prodotto", "Colore", "SKU_KEY", "COL_KEY", "MODEL_KEY"], as_index=False)["Pezzi"].sum()
          .rename(columns={"Pezzi": "Totale"})
     )
-    out = tot.merge(bd[["SKU", "Nome Prodotto", "Colore", "Taglie"]], on=["SKU", "Nome Prodotto", "Colore"], how="left")
-    out = out.merge(inc[["SKU", "Nome Prodotto", "Colore", "Incisioni"]], on=["SKU", "Nome Prodotto", "Colore"], how="left")
+
+    out = tot.merge(
+        bd[["SKU", "Nome Prodotto", "Colore", "Taglie"]],
+        on=["SKU", "Nome Prodotto", "Colore"],
+        how="left"
+    )
+    out = out.merge(
+        inc[["SKU", "Nome Prodotto", "Colore", "Incisioni"]],
+        on=["SKU", "Nome Prodotto", "Colore"],
+        how="left"
+    )
+
     out["Taglie"] = out["Taglie"].fillna("")
     out["Incisioni"] = out["Incisioni"].fillna("")
     out = out.sort_values(["SKU", "Nome Prodotto", "Colore"], kind="stable").reset_index(drop=True)
@@ -1490,7 +1523,6 @@ def _draw_image_fit(c: canvas.Canvas, img_bytes: bytes, x: float, y: float, w: f
 
 
 def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, brand_logo: bytes | None = None) -> bytes:
-
     w, h = landscape(A3)
     mm_to_pt = mm
 
@@ -1508,11 +1540,10 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
             logo_img = None
 
     for _, r in variants.iterrows():
-
         sku = str(r.get("SKU", ""))
         sku_base = _sku_base(sku)
-
         sku_key = str(r.get("SKU_KEY", _norm_key(sku_base)))
+
         prod = str(r.get("Nome Prodotto", ""))
         model_key = str(r.get("MODEL_KEY", product_model_key(prod)))
 
@@ -1521,11 +1552,12 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
 
         taglie = str(r.get("Taglie", ""))
         incisioni = str(r.get("Incisioni", ""))
-
         totale = int(r.get("Totale", 0))
 
+        has_incisioni = clean_str(incisioni) != ""
+
         header_h = 24 * mm_to_pt
-        footer_h = 35 * mm_to_pt
+        footer_h = 34 * mm_to_pt
 
         if logo_img:
             c.drawImage(
@@ -1544,7 +1576,6 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
             h - margin - 10 * mm_to_pt,
             f"{sku_base} — {prod}",
         )
-
         c.drawRightString(
             w - margin,
             h - margin - 10 * mm_to_pt,
@@ -1563,88 +1594,110 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
 
         if front:
             _draw_image_fit(c, front, *box1)
+        elif cfg.show_missing_boxes:
+            c.setLineWidth(1)
+            c.rect(*box1)
+            c.setFont("Helvetica", 14)
+            c.drawCentredString(box1[0] + box1[2] / 2, box1[1] + box1[3] / 2, "FRONTE MANCANTE")
 
         if back:
             _draw_image_fit(c, back, *box2)
+        elif cfg.show_missing_boxes:
+            c.setLineWidth(1)
+            c.rect(*box2)
+            c.setFont("Helvetica", 14)
+            c.drawCentredString(box2[0] + box2[2] / 2, box2[1] + box2[3] / 2, "RETRO MANCANTE")
 
-        # footer background
+        # Banda inferiore
         c.setFillGray(0.96)
         c.rect(margin, margin, w - 2 * margin, footer_h, stroke=0, fill=1)
         c.setFillGray(0)
 
-        # header footer
         c.setFont("Helvetica-Bold", cfg.caption_pt)
-
         c.drawString(
             margin + 6 * mm_to_pt,
             margin + footer_h - 8 * mm_to_pt,
             f"SKU: {sku_base}   Colore: {col}   Totale: {totale}",
         )
 
-        # TAGLIE PILLS
-        items = _parse_taglie_items(taglie)
+        # Se c'è box incisioni, le pills usano meno spazio
+        pills_left_x = margin + 6 * mm_to_pt
+        pills_y = margin + footer_h - 18 * mm_to_pt
+        pills_max_w = (w - 2 * margin - 12 * mm_to_pt)
 
-        pills_y = margin + footer_h - 16 * mm_to_pt
+        box_w = 0
+        if has_incisioni:
+            box_w = 82 * mm_to_pt
+            pills_max_w = (w - 2 * margin - 12 * mm_to_pt - box_w - 10 * mm_to_pt)
+
+        # Pills taglie
+        items = _parse_taglie_items(taglie)
+        cur_x = pills_left_x
 
         if items:
-
-            cur_x = margin + 6 * mm_to_pt
-
             for taglia, qty in items:
-
-                label1 = taglia
-                label2 = str(qty)
-
                 c.setFont("Helvetica", 10)
-                w1 = c.stringWidth(label1)
+                w1 = c.stringWidth(str(taglia), "Helvetica", 10)
 
                 c.setFont("Helvetica-Bold", 10)
-                w2 = c.stringWidth(label2)
+                w2 = c.stringWidth(str(qty), "Helvetica-Bold", 10)
 
-                pw = w1 + w2 + 10 * mm_to_pt
+                pw = w1 + w2 + 12
+                ph = 12
+
+                if cur_x + pw > pills_left_x + pills_max_w:
+                    break
 
                 c.setFillGray(0.92)
-                c.roundRect(cur_x, pills_y - 5, pw, 12, 6, stroke=0, fill=1)
-
+                c.roundRect(cur_x, pills_y - 4, pw, ph, 6, stroke=0, fill=1)
                 c.setFillGray(0)
 
                 c.setFont("Helvetica", 10)
-                c.drawString(cur_x + 6, pills_y, label1)
+                c.drawString(cur_x + 5, pills_y, str(taglia))
 
                 c.setFont("Helvetica-Bold", 10)
-                c.drawString(cur_x + 6 + w1 + 6, pills_y, label2)
+                c.drawString(cur_x + 5 + w1 + 6, pills_y, str(qty))
 
                 cur_x += pw + 8
 
-        # PERSONALIZZAZIONI
-        if clean_str(incisioni):
-
-            box_w = 80 * mm_to_pt
-            box_h = footer_h - 12 * mm_to_pt
-
+        # Personalizzazioni a destra, senza riquadro
+        if has_incisioni:
             bx = w - margin - box_w
             by = margin + 6 * mm_to_pt
+            box_h = footer_h - 10 * mm_to_pt
 
-            c.setFillGray(1)
-            c.rect(bx, by, box_w, box_h, stroke=1, fill=0)
-
+            c.setFillGray(0)
             c.setFont("Helvetica-Bold", 10)
-            c.drawString(bx + 6, by + box_h - 10, "Personalizzazioni")
+            c.drawString(bx, by + box_h - 8, "Personalizzazioni")
 
-            y = by + box_h - 20
+            y = by + box_h - 18
+            max_w = box_w - 4
 
-            c.setFont("Helvetica", 9)
+            lines = incisioni.split("\n")
+            for line in lines:
+                if y < by + 4:
+                    break
 
-            for line in incisioni.split("\n"):
-                c.drawString(bx + 6, y, line)
-                y -= 10
+                txt = line.strip()
+                if not txt:
+                    continue
+
+                c.setFont("Helvetica", 8.5)
+
+                while c.stringWidth(txt, "Helvetica", 8.5) > max_w and len(txt) > 2:
+                    txt = txt[:-1]
+
+                if txt != line.strip():
+                    txt = txt.rstrip() + "…"
+
+                c.drawString(bx, y, txt)
+                y -= 9
 
         c.showPage()
 
     c.save()
     buf.seek(0)
     return buf.getvalue()
-
 
 
 def finance_summary(df_norm: pd.DataFrame, costs: Dict[str, float] | None = None):
