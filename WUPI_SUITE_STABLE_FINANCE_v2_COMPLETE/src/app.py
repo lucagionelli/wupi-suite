@@ -44,6 +44,7 @@ COLOR_ALIAS_MAP = {
   "bk": "nero",
   "black": "nero",
   "blu_navy": "navy",
+  "blu": "navy",
   "blu_royal": "royal",
   "blunavy": "navy",
   "bluroyal": "royal",
