@@ -593,71 +593,75 @@ def render_color_cards(df: pd.DataFrame, sku: str, prod: str, confirmed: set[str
 def global_css() -> None:
     st.markdown("""
 <style>
-/* Sfondo generale in stile macOS / Apple Glass (mesh gradient molto delicato) */
+/* Sfondo generale in stile macOS / Apple Glass (mesh gradient grigio scuro/chiaro) */
 .stApp {
-    background-color: #f4f5f7;
+    background-color: #f5f5f7;
     background-image: 
-        radial-gradient(at 0% 0%, hsla(220, 20%, 95%, 1) 0, transparent 50%), 
-        radial-gradient(at 100% 0%, hsla(210, 40%, 95%, 1) 0, transparent 50%),
-        radial-gradient(at 50% 100%, hsla(230, 30%, 93%, 1) 0, transparent 50%);
+        radial-gradient(at 0% 0%, #ffffff 0, transparent 50%), 
+        radial-gradient(at 100% 0%, #e8e8ed 0, transparent 50%),
+        radial-gradient(at 50% 100%, #eaeaea 0, transparent 50%);
     background-attachment: fixed;
+    color: #1d1d1f;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-:root { --primary-color: #000000 !important; }
-a, a:visited { color:#000; }
-*:focus { outline:none !important; }
-button:focus { box-shadow: 0 0 0 2px rgba(0,0,0,.15) !important; }
-
-/* Header di Streamlit sfocato */
-[data-testid="stHeader"] {
-    background: rgba(255, 255, 255, 0.4) !important;
-    backdrop-filter: blur(16px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+/* Override Bottoni Streamlit (Toni Nero, Grigio, Bianco) */
+.stButton > button {
+    background-color: rgba(255, 255, 255, 0.6) !important;
+    color: #1d1d1f !important;
+    border: 1px solid rgba(0, 0, 0, 0.15) !important;
+    border-radius: 12px !important;
+    backdrop-filter: blur(10px) !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
 }
+.stButton > button:hover {
+    background-color: #ffffff !important;
+    border-color: rgba(0, 0, 0, 0.3) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+    color: #000000 !important;
+}
+/* Bottoni Primary (es. Genera PDF) */
+.stButton > button[kind="primary"] {
+    background-color: #1d1d1f !important;
+    color: #ffffff !important;
+    border: 1px solid #000000 !important;
+}
+.stButton > button[kind="primary"]:hover {
+    background-color: #333336 !important;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.15) !important;
+    color: #ffffff !important;
+}
+/* Rimuovi focus rossi/blu e link */
+*:focus { outline:none !important; }
+button:focus { box-shadow: 0 0 0 2px rgba(0,0,0,.2) !important; }
+a, a:visited { color:#1d1d1f; }
 
-/* File uploader Glass */
+/* Upload Files Box Glass */
 [data-testid="stFileUploader"] {
-    background: rgba(255, 255, 255, 0.5) !important;
-    backdrop-filter: blur(20px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-    border: 1px solid rgba(255, 255, 255, 0.6) !important;
-    border-radius: 20px !important;
+    background: rgba(255, 255, 255, 0.6) !important;
+    backdrop-filter: blur(20px) !important;
+    border: 1px dashed rgba(0, 0, 0, 0.2) !important;
+    border-radius: 16px !important;
     padding: 1.5rem !important;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.03) !important;
 }
 [data-testid="stFileUploader"] button > div { display:none !important; }
-[data-testid="stFileUploader"] button:after {
-  content:"Carica il file";
-  font-weight:700;
-}
+[data-testid="stFileUploader"] button:after { content:"Carica file"; font-weight:600; }
 
-/* Dataframes / Tabelle generiche Glass */
-[data-testid="stDataFrame"] > div {
-    background: rgba(255, 255, 255, 0.5) !important;
-    backdrop-filter: blur(16px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+/* Metriche e Dataframe Glass */
+[data-testid="stMetric"], [data-testid="stDataFrame"] > div {
+    background: rgba(255, 255, 255, 0.6) !important;
+    backdrop-filter: blur(16px) !important;
     border-radius: 16px !important;
-    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    border: 1px solid rgba(0, 0, 0, 0.05) !important;
     box-shadow: 0 4px 20px rgba(0,0,0,0.02) !important;
 }
-
-/* Metriche Glass */
-[data-testid="stMetric"] {
-    background: rgba(255, 255, 255, 0.5) !important;
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-radius: 20px;
-    padding: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.02);
-}
+[data-testid="stMetric"] { padding: 16px; }
 
 .wupi-gap-after-pivot { height: 14px; }
 </style>
 """, unsafe_allow_html=True)
-
+    
 # -------------------------
 # Labels
 # -------------------------
@@ -1369,27 +1373,11 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
         footer_h = 34 * mm_to_pt
 
         if logo_img:
-            c.drawImage(
-                logo_img,
-                margin,
-                h - margin - 16 * mm_to_pt,
-                width=26 * mm_to_pt,
-                height=16 * mm_to_pt,
-                preserveAspectRatio=True,
-                mask="auto",
-            )
+            c.drawImage(logo_img, margin, h - margin - 16 * mm_to_pt, width=26 * mm_to_pt, height=16 * mm_to_pt, preserveAspectRatio=True, mask="auto")
 
         c.setFont("Helvetica-Bold", cfg.header_pt)
-        c.drawString(
-            margin + (32 * mm_to_pt if logo_img else 0),
-            h - margin - 10 * mm_to_pt,
-            f"{sku_base} — {prod}",
-        )
-        c.drawRightString(
-            w - margin,
-            h - margin - 10 * mm_to_pt,
-            f"{col}",
-        )
+        c.drawString(margin + (32 * mm_to_pt if logo_img else 0), h - margin - 10 * mm_to_pt, f"{sku_base} — {prod}")
+        c.drawRightString(w - margin, h - margin - 10 * mm_to_pt, f"{col}")
 
         img_y0 = margin + footer_h + gap
         img_h = h - margin - header_h - img_y0
@@ -1417,17 +1405,12 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
             c.setFont("Helvetica", 14)
             c.drawCentredString(box2[0] + box2[2] / 2, box2[1] + box2[3] / 2, "RETRO MANCANTE")
 
-        # Banda inferiore
         c.setFillGray(0.96)
         c.rect(margin, margin, w - 2 * margin, footer_h, stroke=0, fill=1)
         c.setFillGray(0)
 
         c.setFont("Helvetica-Bold", cfg.caption_pt * 1.5)
-        c.drawString(
-            margin + 6 * mm_to_pt,
-            margin + footer_h - 8 * mm_to_pt,
-            f"SKU: {sku_base}   Colore: {col}   Totale: {totale}",
-        )
+        c.drawString(margin + 6 * mm_to_pt, margin + footer_h - 8 * mm_to_pt, f"SKU: {sku_base}   Colore: {col}   Totale: {totale}")
 
         pills_left_x = margin + 6 * mm_to_pt
         pills_y = margin + footer_h - 18 * mm_to_pt
@@ -1438,7 +1421,6 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
             box_w = 82 * mm_to_pt
             pills_max_w = (w - 2 * margin - 12 * mm_to_pt - box_w - 10 * mm_to_pt)
 
-        # Pills taglie
         items = _parse_taglie_items(taglie)
         cur_x = pills_left_x
 
@@ -1480,36 +1462,58 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
 
                 cur_x += pw + gap_between
 
-        # Personalizzazioni a destra
+        # NUOVO BLOCCO PERSONALIZZAZIONI
         if has_incisioni:
             bx = w - margin - box_w
             by = margin + 6 * mm_to_pt
             box_h = footer_h - 10 * mm_to_pt
 
-            c.setFillGray(0)
-            c.setFont("Helvetica-Bold", 16)
-            c.drawString(bx, by + box_h - 8, "Personalizzazioni")
+            # Sfondo grigio arrotondato per il box
+            c.setFillColorRGB(0.93, 0.93, 0.94)
+            c.roundRect(bx, by, box_w, box_h, 6, stroke=0, fill=1)
 
-            y = by + box_h - 18
-            max_w = box_w - 4
+            # Titolo
+            c.setFillGray(0)
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(bx + 8, by + box_h - 14, "PERSONALIZZAZIONI")
 
             lines = incisioni.split("\n")
-            for line in lines:
-                if y < by + 4:
-                    break
+            if len(lines) >= 2:
+                neutri = lines[0]
+                pers = lines[1]
+                details = lines[2:]
 
-                txt = line.strip()
-                if not txt: continue
+                # Contatori uniti in una riga (per salvare spazio)
+                c.setFont("Helvetica-Bold", 8.5)
+                c.drawString(bx + 8, by + box_h - 26, f"{neutri}   |   {pers}")
+                
+                # Linea divisoria sottile
+                c.setLineWidth(0.5)
+                c.setStrokeColorRGB(0.85, 0.85, 0.85)
+                c.line(bx + 8, by + box_h - 32, bx + box_w - 8, by + box_h - 32)
 
-                c.setFont("Helvetica", 8.5)
-                while c.stringWidth(txt, "Helvetica", 8.5) > max_w and len(txt) > 2:
-                    txt = txt[:-1]
+                # Elenco nomi con piccoli pallini
+                y = by + box_h - 44
+                max_w = box_w - 16
+                for line in details:
+                    if y < by + 6:
+                        break
+                    txt = line.strip()
+                    if not txt: continue
 
-                if txt != line.strip():
-                    txt = txt.rstrip() + "…"
+                    # Disegna pallino scuro
+                    c.setFillColorRGB(0.2, 0.2, 0.2)
+                    c.circle(bx + 11, y + 2.5, 1.5, stroke=0, fill=1)
 
-                c.drawString(bx, y, txt)
-                y -= 9
+                    # Disegna testo
+                    c.setFillGray(0)
+                    c.setFont("Helvetica", 8)
+                    while c.stringWidth(txt, "Helvetica", 8) > max_w - 8 and len(txt) > 2:
+                        txt = txt[:-1]
+                    if txt != line.strip(): txt = txt.rstrip() + "…"
+
+                    c.drawString(bx + 16, y, txt)
+                    y -= 10
         
         c.showPage()
 
@@ -1780,8 +1784,67 @@ def main() -> None:
                 | piv_full["Colore"].astype(str).str.contains(qq, case=False, na=False)
             ].copy()
 
-        render_pivot_html(piv_view, confirmed)
-        st.markdown('<div class="wupi-gap-after-pivot"></div>', unsafe_allow_html=True)
+      def render_pivot_html(piv: pd.DataFrame, confirmed: set[str]) -> None:
+    view = piv.copy()
+    for c in [s for s in SIZE_ORDER if s in view.columns]:
+        view[c] = view[c].replace({0: ""})
+    view["Totale"] = piv["Totale"].astype(int)
+
+    cols = list(view.columns)
+
+    css = f"""<style>
+.table-wrap {{ 
+    overflow:auto; 
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(0, 0, 0, 0.08); 
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+}}
+table.wupi {{ border-collapse:separate; border-spacing:0; width:100%; font-size:14px; }}
+table.wupi th, table.wupi td {{ padding:12px 12px; border-bottom:1px solid rgba(0,0,0,.04); vertical-align:middle; color: #1d1d1f; }}
+table.wupi th {{ 
+    position:sticky; top:0; 
+    background: rgba(250, 250, 250, 0.85); 
+    backdrop-filter: blur(10px);
+    z-index:2; font-weight:700; letter-spacing: -0.2px;
+}}
+table.wupi td {{ background: transparent; }}
+table.wupi td.tot, table.wupi th.tot {{ position:sticky; right:0; z-index:3; font-weight:800; }}
+table.wupi th.tot {{ background: rgba(250, 250, 250, 0.95); }}
+table.wupi td.tot {{ background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(10px); }}
+tr.confirmed td {{ background: rgba(235, 235, 235, 0.7); opacity: 0.8; }}
+tr.confirmed td.tot {{ background: rgba(235, 235, 235, 0.9); backdrop-filter: blur(10px); }}
+.center {{ text-align:center; }}
+</style>"""
+
+    html: list[str] = []
+    html.append(css)
+    html.append('<div class="table-wrap"><table class="wupi">')
+    html.append('<thead><tr>')
+
+    for c in cols:
+        cls = "tot" if c == "Totale" else ""
+        align = "center" if c in SIZE_ORDER + ["Totale"] else ""
+        html.append(f'<th class="{cls} {align}">{c}</th>')
+
+    html.append('</tr></thead><tbody>')
+
+    for _, r in view.iterrows():
+        k = normalize_key(key_row(clean_str(r.get("SKU", "")), clean_str(r.get("Nome Prodotto", "")), clean_str(r.get("Colore", ""))))
+        tr_cls = "confirmed" if k in confirmed else ""
+        html.append(f'<tr class="{tr_cls}">')
+        for c in cols:
+            cls = "tot" if c == "Totale" else ""
+            align = "center" if c in SIZE_ORDER + ["Totale"] else ""
+            val = r[c]
+            if pd.isna(val): val = ""
+            html.append(f'<td class="{cls} {align}">{val}</td>')
+        html.append('</tr>')
+
+    html.append('</tbody></table></div>')
+    st.markdown("".join(html), unsafe_allow_html=True)
 
         pairs = piv_full[["SKU", "Nome Prodotto"]].drop_duplicates().sort_values(["SKU", "Nome Prodotto"], kind="stable")
         options = [f'{r["SKU"]} — {r["Nome Prodotto"]}' for _, r in pairs.iterrows()]
