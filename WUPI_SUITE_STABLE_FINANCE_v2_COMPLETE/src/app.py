@@ -397,15 +397,30 @@ def render_pivot_html(piv: pd.DataFrame, confirmed: set[str]) -> None:
     cols = list(view.columns)
 
     css = f"""<style>
-.table-wrap {{ overflow:auto; border:1px solid rgba(0,0,0,.08); border-radius:14px; }}
+/* Pivot Table in stile Glass */
+.table-wrap {{ 
+    overflow:auto; 
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.7); 
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+}}
 table.wupi {{ border-collapse:separate; border-spacing:0; width:100%; font-size:14px; }}
-table.wupi th, table.wupi td {{ padding:10px 10px; border-bottom:1px solid rgba(0,0,0,.06); vertical-align:middle; }}
-table.wupi th {{ position:sticky; top:0; background:#fafafa; z-index:2; font-weight:700; }}
-table.wupi td {{ background:#fff; }}
-table.wupi td.tot, table.wupi th.tot {{ position:sticky; right:0; z-index:3; background:#fff; font-weight:900; }}
-table.wupi th.tot {{ background:#fafafa; }}
-tr.confirmed td {{ background:{GREEN}; }}
-tr.confirmed td.tot {{ background:{GREEN}; }}
+table.wupi th, table.wupi td {{ padding:12px 12px; border-bottom:1px solid rgba(0,0,0,.04); vertical-align:middle; color: #1d1d1f; }}
+table.wupi th {{ 
+    position:sticky; top:0; 
+    background: rgba(250, 250, 250, 0.85); 
+    backdrop-filter: blur(10px);
+    z-index:2; font-weight:700; letter-spacing: -0.2px;
+}}
+table.wupi td {{ background: transparent; }}
+table.wupi td.tot, table.wupi th.tot {{ position:sticky; right:0; z-index:3; font-weight:800; }}
+table.wupi th.tot {{ background: rgba(250, 250, 250, 0.95); }}
+table.wupi td.tot {{ background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(10px); }}
+tr.confirmed td {{ background: rgba(215, 247, 215, 0.4); }}
+tr.confirmed td.tot {{ background: rgba(215, 247, 215, 0.7); backdrop-filter: blur(10px); }}
 .center {{ text-align:center; }}
 </style>"""
 
@@ -449,7 +464,7 @@ def cards_css() -> None:
 .wupi-grid {{
   display:grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap:14px;
+  gap:18px;
 }}
 @media (max-width: 1100px) {{
   .wupi-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
@@ -457,38 +472,45 @@ def cards_css() -> None:
 @media (max-width: 720px) {{
   .wupi-grid {{ grid-template-columns: repeat(1, minmax(0, 1fr)); }}
 }}
+
+/* Stile Apple Glass per le Cards */
 .wupi-card {{
-  border:1px solid rgba(0,0,0,.10);
-  border-radius:18px;
-  padding:14px 14px 12px 14px;
-  background:#fff;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 24px;
+  padding: 18px 18px 16px 18px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.2s ease;
+}}
+.wupi-card:hover {{
+  transform: translateY(-2px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.08);
 }}
 .wupi-card.confirmed {{
-  background:{GREEN};
+  background: rgba(215, 247, 215, 0.5); /* Vetro verdino */
+  border: 1px solid rgba(215, 247, 215, 0.9);
 }}
 .card-head {{
   display:flex; justify-content:space-between; align-items:baseline;
-  margin-bottom:10px;
+  margin-bottom:12px;
 }}
-.color-name {{ font-weight:900; font-size:18px; }}
-.color-tot {{ font-weight:900; font-size:18px; }}
+.color-name {{ font-weight:800; font-size:18px; letter-spacing:-0.4px; color: #1d1d1f; }}
+.color-tot {{ font-weight:700; font-size:16px; color: #86868b; }}
 .chips {{ display:flex; flex-wrap:wrap; gap:10px; justify-content:flex-start; }}
+
+/* Le pillole delle taglie */
 .chip {{
   display:inline-flex; gap:8px; align-items:center;
-  padding:8px 12px; border-radius:999px;
-  background:rgba(0,0,0,.06);
-  font-size:16px;
+  padding: 6px 14px; border-radius: 14px;
+  background: rgba(0,0,0,0.03);
+  border: 1px solid rgba(0,0,0,0.03);
+  font-size: 15px;
+  color: #1d1d1f;
 }}
-.chip .q {{ font-weight:900; font-size:18px; }}
+.chip .q {{ font-weight:800; font-size:16px; color: #000; }}
 .btn-row {{ display:flex; gap:12px; justify-content:center; margin-top:18px; }}
-.btn {{
-  display:inline-flex; justify-content:center; align-items:center;
-  height:44px; padding:0 14px; border-radius:14px;
-  border:1px solid rgba(0,0,0,.14);
-  background:#fff; font-weight:700;
-}}
-.btn.primary {{ background:#111827; color:#fff; border-color:#111827; }}
-.btn.disabled {{ opacity:.45; pointer-events:none; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -570,13 +592,67 @@ def render_color_cards(df: pd.DataFrame, sku: str, prod: str, confirmed: set[str
 def global_css() -> None:
     st.markdown("""
 <style>
+/* Sfondo generale in stile macOS / Apple Glass (mesh gradient molto delicato) */
+.stApp {
+    background-color: #f4f5f7;
+    background-image: 
+        radial-gradient(at 0% 0%, hsla(220, 20%, 95%, 1) 0, transparent 50%), 
+        radial-gradient(at 100% 0%, hsla(210, 40%, 95%, 1) 0, transparent 50%),
+        radial-gradient(at 50% 100%, hsla(230, 30%, 93%, 1) 0, transparent 50%);
+    background-attachment: fixed;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
 :root { --primary-color: #000000 !important; }
 a, a:visited { color:#000; }
 *:focus { outline:none !important; }
-button:focus { box-shadow: 0 0 0 2px rgba(0,0,0,.25) !important; }
-button:active { box-shadow: 0 0 0 2px rgba(0,0,0,.25) !important; }
+button:focus { box-shadow: 0 0 0 2px rgba(0,0,0,.15) !important; }
+
+/* Header di Streamlit sfocato */
+[data-testid="stHeader"] {
+    background: rgba(255, 255, 255, 0.4) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* File uploader Glass */
+[data-testid="stFileUploader"] {
+    background: rgba(255, 255, 255, 0.5) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    border-radius: 20px !important;
+    padding: 1.5rem !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.03) !important;
+}
 [data-testid="stFileUploader"] button > div { display:none !important; }
-[data-testid="stFileUploader"] button:after { content:"Carica il file"; font-weight:700; }
+[data-testid="stFileUploader"] button:after {
+  content:"Carica il file";
+  font-weight:700;
+}
+
+/* Dataframes / Tabelle generiche Glass */
+[data-testid="stDataFrame"] > div {
+    background: rgba(255, 255, 255, 0.5) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.02) !important;
+}
+
+/* Metriche Glass */
+[data-testid="stMetric"] {
+    background: rgba(255, 255, 255, 0.5) !important;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-radius: 20px;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+}
+
 .wupi-gap-after-pivot { height: 14px; }
 </style>
 """, unsafe_allow_html=True)
