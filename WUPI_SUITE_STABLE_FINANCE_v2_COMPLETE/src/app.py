@@ -43,8 +43,8 @@ COLOR_ALIAS_MAP = {
   "bianco": "bianco",
   "bk": "nero",
   "black": "nero",
-  "blu_navy": "navy",
   "blu": "navy",
+  "blu_navy": "navy",
   "blu_royal": "royal",
   "blunavy": "navy",
   "bluroyal": "royal",
@@ -322,7 +322,6 @@ def normalize_key(k: str) -> str:
         return clean_str(k)
 
 def canon_key(sku: str, prod: str, color: str) -> str:
-    # Canonical comparison key (case-insensitive, trimmed, no 'nan')
     return f"{clean_str(sku).lower()}||{clean_str(prod).lower()}||{clean_str(color).lower()}"
 
 def sort_size_key(taglia: str) -> int:
@@ -334,14 +333,13 @@ def sort_size_key(taglia: str) -> int:
     return SIZE_ORDER.index(t) if t in SIZE_ORDER else 998
 
 def df_normalize(df: pd.DataFrame) -> pd.DataFrame:
-    # Required for report
     df = standardize_required_columns(df)
     ensure_cols(df, ["SKU", "Nome Prodotto", "Colore", "Taglia", "Pezzi"])
     out = df.copy()
 
     out["SKU"] = out["SKU"].map(clean_str)
     out["Nome Prodotto"] = out["Nome Prodotto"].map(clean_str)
-    out["Colore"] = out["Colore"].map(clean_str)  # blank stays blank
+    out["Colore"] = out["Colore"].map(clean_str)  
     out["Taglia"] = out["Taglia"].map(normalize_size)
     out["Pezzi"] = pd.to_numeric(out["Pezzi"], errors="coerce").fillna(0).astype(int)
     if "Prezzo unitario" in out.columns:
@@ -353,27 +351,22 @@ def df_normalize(df: pd.DataFrame) -> pd.DataFrame:
     else:
         out["Prezzo acquisto"] = 0.0
 
-    # Student / docente for labels (optional)
     for c in ["Nome Studente", "Cognome Studente", "Classe", "Docente/ATA", "N. Ordine", "Nome incisione"]:
         if c in out.columns:
             out[c] = out[c].map(clean_str)
         else:
             out[c] = "" if c != "N. Ordine" else ""
 
-    # Build "Persona"
     out["Studente"] = (out["Nome Studente"].fillna("") + " " + out["Cognome Studente"].fillna("")).str.replace(r"\s+", " ", regex=True).str.strip()
-    # If empty -> use docente
     is_doc = out["Nome Studente"].eq("") & out["Cognome Studente"].eq("")
     out.loc[is_doc, "Studente"] = out.loc[is_doc, "Docente/ATA"].fillna("").astype(str).str.strip()
 
-    # Group label (Classe or Docenti/ATA)
     out["GruppoEtichetta"] = out["Classe"].where(~is_doc, "Docenti / ATA")
     out.loc[out["GruppoEtichetta"].eq(""), "GruppoEtichetta"] = "Docenti / ATA"
 
     return out
 
 def pivot_report(df: pd.DataFrame) -> pd.DataFrame:
-    # For pivot only, if Taglia is blank, count it as UNICA to not lose quantities.
     d = df.copy()
     d.loc[d["Taglia"].eq(""), "Taglia"] = "UNICA"
 
@@ -404,7 +397,7 @@ def render_pivot_html(piv: pd.DataFrame, confirmed: set[str]) -> None:
     background: rgba(255, 255, 255, 0.55);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.7); 
+    border: 1px solid rgba(0, 0, 0, 0.08); 
     border-radius: 20px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
 }}
@@ -420,8 +413,8 @@ table.wupi td {{ background: transparent; }}
 table.wupi td.tot, table.wupi th.tot {{ position:sticky; right:0; z-index:3; font-weight:800; }}
 table.wupi th.tot {{ background: rgba(250, 250, 250, 0.95); }}
 table.wupi td.tot {{ background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(10px); }}
-tr.confirmed td {{ background: rgba(215, 247, 215, 0.4); }}
-tr.confirmed td.tot {{ background: rgba(215, 247, 215, 0.7); backdrop-filter: blur(10px); }}
+tr.confirmed td {{ background: rgba(235, 235, 235, 0.7); opacity: 0.8; }}
+tr.confirmed td.tot {{ background: rgba(235, 235, 235, 0.9); backdrop-filter: blur(10px); }}
 .center {{ text-align:center; }}
 </style>"""
 
@@ -438,21 +431,14 @@ tr.confirmed td.tot {{ background: rgba(215, 247, 215, 0.7); backdrop-filter: bl
     html.append('</tr></thead><tbody>')
 
     for _, r in view.iterrows():
-        k = normalize_key(
-            key_row(
-                clean_str(r.get("SKU", "")),
-                clean_str(r.get("Nome Prodotto", "")),
-                clean_str(r.get("Colore", "")),
-            )
-        )
+        k = normalize_key(key_row(clean_str(r.get("SKU", "")), clean_str(r.get("Nome Prodotto", "")), clean_str(r.get("Colore", ""))))
         tr_cls = "confirmed" if k in confirmed else ""
         html.append(f'<tr class="{tr_cls}">')
         for c in cols:
             cls = "tot" if c == "Totale" else ""
             align = "center" if c in SIZE_ORDER + ["Totale"] else ""
             val = r[c]
-            if pd.isna(val):
-                val = ""
+            if pd.isna(val): val = ""
             html.append(f'<td class="{cls} {align}">{val}</td>')
         html.append('</tr>')
 
@@ -460,58 +446,47 @@ tr.confirmed td.tot {{ background: rgba(215, 247, 215, 0.7); backdrop-filter: bl
     st.markdown("".join(html), unsafe_allow_html=True)
 
 def cards_css() -> None:
-    st.markdown(f"""
+    st.markdown("""
 <style>
-.wupi-grid {{
-  display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap:18px;
-}}
-@media (max-width: 1100px) {{
-  .wupi-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
-}}
-@media (max-width: 720px) {{
-  .wupi-grid {{ grid-template-columns: repeat(1, minmax(0, 1fr)); }}
-}}
+.wupi-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:18px; }
+@media (max-width: 1100px) { .wupi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .wupi-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); } }
 
-/* Stile Apple Glass per le Cards */
-.wupi-card {{
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  border-radius: 24px;
-  padding: 18px 18px 16px 18px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
-  transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.2s ease;
-}}
-.wupi-card:hover {{
+/* Cards in stile Apple Glass */
+.wupi-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.wupi-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.08);
-}}
-.wupi-card.confirmed {{
-  background: rgba(215, 247, 215, 0.5); /* Vetro verdino */
-  border: 1px solid rgba(215, 247, 215, 0.9);
-}}
-.card-head {{
-  display:flex; justify-content:space-between; align-items:baseline;
-  margin-bottom:12px;
-}}
-.color-name {{ font-weight:800; font-size:18px; letter-spacing:-0.4px; color: #1d1d1f; }}
-.color-tot {{ font-weight:700; font-size:16px; color: #86868b; }}
-.chips {{ display:flex; flex-wrap:wrap; gap:10px; justify-content:flex-start; }}
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+}
+/* Card Confermata - Niente più verde, ora è grigio elegante con bordo marcato */
+.wupi-card.confirmed {
+  background: rgba(240, 240, 240, 0.85);
+  border: 2px solid #1d1d1f;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.05);
+}
+.card-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px; }
+.color-name { font-weight:800; font-size:18px; letter-spacing:-0.4px; color: #1d1d1f; }
+.color-tot { font-weight:700; font-size:16px; color: #86868b; }
+.chips { display:flex; flex-wrap:wrap; gap:8px; }
 
-/* Le pillole delle taglie */
-.chip {{
-  display:inline-flex; gap:8px; align-items:center;
-  padding: 6px 14px; border-radius: 14px;
-  background: rgba(0,0,0,0.03);
-  border: 1px solid rgba(0,0,0,0.03);
-  font-size: 15px;
-  color: #1d1d1f;
-}}
-.chip .q {{ font-weight:800; font-size:16px; color: #000; }}
-.btn-row {{ display:flex; gap:12px; justify-content:center; margin-top:18px; }}
+/* Taglie (pills) */
+.chip {
+  display:inline-flex; gap:6px; align-items:center;
+  padding: 6px 12px; border-radius: 12px;
+  background: rgba(0,0,0,0.04);
+  font-size: 14px; font-weight: 500; color: #555;
+}
+.chip .q { font-weight:800; font-size:15px; color: #1d1d1f; }
+.btn-row { display:flex; gap:12px; justify-content:center; margin-top:18px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -542,8 +517,7 @@ def render_color_cards(df: pd.DataFrame, sku: str, prod: str, confirmed: set[str
         chips = "".join([f'<span class="chip">{t}<span class="q">{q}</span></span>' for t, q in items])
 
         with col:
-            st.markdown(
-                f"""
+            st.markdown(f"""
 <div class="wupi-card {'confirmed' if is_done else ''}">
   <div class="card-head">
     <div class="color-name">{color if color else '(colore vuoto)'}</div>
@@ -551,9 +525,7 @@ def render_color_cards(df: pd.DataFrame, sku: str, prod: str, confirmed: set[str
   </div>
   <div class="chips">{chips}</div>
 </div>
-""",
-                unsafe_allow_html=True,
-            )
+""", unsafe_allow_html=True)
             st.markdown('<div style="height:16px"></div>', unsafe_allow_html=True)
             b1, b2 = st.columns(2)
             with b1:
@@ -661,7 +633,7 @@ a, a:visited { color:#1d1d1f; }
 .wupi-gap-after-pivot { height: 14px; }
 </style>
 """, unsafe_allow_html=True)
-    
+
 # -------------------------
 # Labels
 # -------------------------
@@ -1138,7 +1110,6 @@ def product_model_key(nome_prodotto: str) -> str:
     part_low = part.lower()
     part_low = re.sub(r"^\s*modello\s+", "", part_low, flags=re.IGNORECASE)
     
-    # Rimuove termini di abbigliamento e gadget generici
     clothing_pattern = r"(?i)\b(hoodie|t\-shirt|tshirt|shirt|sweatshirt|felpa|maglia|maglietta|pant|pants|pantalone|pantaloni|short|shorts|zip|crew|giacca|jacket|kway|k\-way|college|polo|penne|kit)\b"
     part_low = re.sub(clothing_pattern, "", part_low)
     
@@ -1267,7 +1238,7 @@ def bibbia_variants(df_norm: pd.DataFrame) -> pd.DataFrame:
     tmp["CLS_SHOW"] = tmp["Classe"].map(clean_str)
     tmp.loc[tmp["CLS_SHOW"].eq(""), "CLS_SHOW"] = "Docenti / ATA"
 
-    clothing_pattern = r"(?i)\b(hoodie|t\-shirt|tshirt|shirt|sweatshirt|felpa|maglia|maglietta|pant|pants|pantalone|pantaloni|short|shorts|zip|crew|giacca|jacket|kway|k\-way|college)\b"
+    clothing_pattern = r"(?i)\b(hoodie|t\-shirt|tshirt|shirt|sweatshirt|felpa|maglia|maglietta|pant|pants|pantalone|pantaloni|short|shorts|zip|crew|giacca|jacket|kway|k\-way|college|polo|penne|kit)\b"
     is_clothing = tmp["Nome Prodotto"].astype(str).str.contains(clothing_pattern, regex=True)
     tmp.loc[is_clothing, "INC_RAW"] = ""
 
@@ -1374,11 +1345,27 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
         footer_h = 34 * mm_to_pt
 
         if logo_img:
-            c.drawImage(logo_img, margin, h - margin - 16 * mm_to_pt, width=26 * mm_to_pt, height=16 * mm_to_pt, preserveAspectRatio=True, mask="auto")
+            c.drawImage(
+                logo_img,
+                margin,
+                h - margin - 16 * mm_to_pt,
+                width=26 * mm_to_pt,
+                height=16 * mm_to_pt,
+                preserveAspectRatio=True,
+                mask="auto",
+            )
 
         c.setFont("Helvetica-Bold", cfg.header_pt)
-        c.drawString(margin + (32 * mm_to_pt if logo_img else 0), h - margin - 10 * mm_to_pt, f"{sku_base} — {prod}")
-        c.drawRightString(w - margin, h - margin - 10 * mm_to_pt, f"{col}")
+        c.drawString(
+            margin + (32 * mm_to_pt if logo_img else 0),
+            h - margin - 10 * mm_to_pt,
+            f"{sku_base} — {prod}",
+        )
+        c.drawRightString(
+            w - margin,
+            h - margin - 10 * mm_to_pt,
+            f"{col}",
+        )
 
         img_y0 = margin + footer_h + gap
         img_h = h - margin - header_h - img_y0
@@ -1411,7 +1398,11 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
         c.setFillGray(0)
 
         c.setFont("Helvetica-Bold", cfg.caption_pt * 1.5)
-        c.drawString(margin + 6 * mm_to_pt, margin + footer_h - 8 * mm_to_pt, f"SKU: {sku_base}   Colore: {col}   Totale: {totale}")
+        c.drawString(
+            margin + 6 * mm_to_pt,
+            margin + footer_h - 8 * mm_to_pt,
+            f"SKU: {sku_base}   Colore: {col}   Totale: {totale}",
+        )
 
         pills_left_x = margin + 6 * mm_to_pt
         pills_y = margin + footer_h - 18 * mm_to_pt
@@ -1463,13 +1454,12 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
 
                 cur_x += pw + gap_between
 
-        # NUOVO BLOCCO PERSONALIZZAZIONI
         if has_incisioni:
             bx = w - margin - box_w
             by = margin + 6 * mm_to_pt
             box_h = footer_h - 10 * mm_to_pt
 
-            # Sfondo grigio arrotondato per il box
+            # Sfondo grigio arrotondato
             c.setFillColorRGB(0.93, 0.93, 0.94)
             c.roundRect(bx, by, box_w, box_h, 6, stroke=0, fill=1)
 
@@ -1484,16 +1474,13 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
                 pers = lines[1]
                 details = lines[2:]
 
-                # Contatori uniti in una riga (per salvare spazio)
                 c.setFont("Helvetica-Bold", 8.5)
                 c.drawString(bx + 8, by + box_h - 26, f"{neutri}   |   {pers}")
                 
-                # Linea divisoria sottile
                 c.setLineWidth(0.5)
                 c.setStrokeColorRGB(0.85, 0.85, 0.85)
                 c.line(bx + 8, by + box_h - 32, bx + box_w - 8, by + box_h - 32)
 
-                # Elenco nomi con piccoli pallini
                 y = by + box_h - 44
                 max_w = box_w - 16
                 for line in details:
@@ -1502,14 +1489,12 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
                     txt = line.strip()
                     if not txt: continue
 
-                    # Disegna pallino scuro
                     c.setFillColorRGB(0.2, 0.2, 0.2)
                     c.circle(bx + 11, y + 2.5, 1.5, stroke=0, fill=1)
 
-                    # Disegna testo
                     c.setFillGray(0)
-                    c.setFont("Helvetica", 8)
-                    while c.stringWidth(txt, "Helvetica", 8) > max_w - 8 and len(txt) > 2:
+                    c.setFont("Helvetica", 8.5)
+                    while c.stringWidth(txt, "Helvetica", 8.5) > max_w - 8 and len(txt) > 2:
                         txt = txt[:-1]
                     if txt != line.strip(): txt = txt.rstrip() + "…"
 
@@ -1746,7 +1731,7 @@ def main() -> None:
     top_l, top_r = st.columns([7, 1])
     with top_l:
         st.title("WUPI Suite")
-        st.caption(f"Build: STUDIO_v3_COMPLETE (stable) • {Path(__file__).resolve()}")
+        st.caption(f"Build: STUDIO_v3_GLASS (stable) • {Path(__file__).resolve()}")
     with top_r:
         if LOGO_PATH.exists():
             st.image(str(LOGO_PATH), use_container_width=True)
@@ -1772,7 +1757,7 @@ def main() -> None:
     tabs = st.tabs(["📦 Report acquisto", "🏷 Etichette", "💸 Ordini da pagare", "📖 Bibbia maker", "💰 Finanze"])
     with tabs[0]:
         st.subheader("Pivot ordine fornitore")
-        st.caption("0 nascosti, Totale fisso a destra (bold). Le righe confermate diventano verdi.")
+        st.caption("0 nascosti, Totale fisso a destra (bold). Le righe confermate diventano grigie/verdi.")
         piv_full = pivot_report(df)
 
         q = st.text_input("🔍 Cerca (SKU / Prodotto / Colore)", key="pivot_search")
@@ -1785,67 +1770,8 @@ def main() -> None:
                 | piv_full["Colore"].astype(str).str.contains(qq, case=False, na=False)
             ].copy()
 
-      def render_pivot_html(piv: pd.DataFrame, confirmed: set[str]) -> None:
-    view = piv.copy()
-    for c in [s for s in SIZE_ORDER if s in view.columns]:
-        view[c] = view[c].replace({0: ""})
-    view["Totale"] = piv["Totale"].astype(int)
-
-    cols = list(view.columns)
-
-    css = f"""<style>
-.table-wrap {{ 
-    overflow:auto; 
-    background: rgba(255, 255, 255, 0.55);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(0, 0, 0, 0.08); 
-    border-radius: 20px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
-}}
-table.wupi {{ border-collapse:separate; border-spacing:0; width:100%; font-size:14px; }}
-table.wupi th, table.wupi td {{ padding:12px 12px; border-bottom:1px solid rgba(0,0,0,.04); vertical-align:middle; color: #1d1d1f; }}
-table.wupi th {{ 
-    position:sticky; top:0; 
-    background: rgba(250, 250, 250, 0.85); 
-    backdrop-filter: blur(10px);
-    z-index:2; font-weight:700; letter-spacing: -0.2px;
-}}
-table.wupi td {{ background: transparent; }}
-table.wupi td.tot, table.wupi th.tot {{ position:sticky; right:0; z-index:3; font-weight:800; }}
-table.wupi th.tot {{ background: rgba(250, 250, 250, 0.95); }}
-table.wupi td.tot {{ background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(10px); }}
-tr.confirmed td {{ background: rgba(235, 235, 235, 0.7); opacity: 0.8; }}
-tr.confirmed td.tot {{ background: rgba(235, 235, 235, 0.9); backdrop-filter: blur(10px); }}
-.center {{ text-align:center; }}
-</style>"""
-
-    html: list[str] = []
-    html.append(css)
-    html.append('<div class="table-wrap"><table class="wupi">')
-    html.append('<thead><tr>')
-
-    for c in cols:
-        cls = "tot" if c == "Totale" else ""
-        align = "center" if c in SIZE_ORDER + ["Totale"] else ""
-        html.append(f'<th class="{cls} {align}">{c}</th>')
-
-    html.append('</tr></thead><tbody>')
-
-    for _, r in view.iterrows():
-        k = normalize_key(key_row(clean_str(r.get("SKU", "")), clean_str(r.get("Nome Prodotto", "")), clean_str(r.get("Colore", ""))))
-        tr_cls = "confirmed" if k in confirmed else ""
-        html.append(f'<tr class="{tr_cls}">')
-        for c in cols:
-            cls = "tot" if c == "Totale" else ""
-            align = "center" if c in SIZE_ORDER + ["Totale"] else ""
-            val = r[c]
-            if pd.isna(val): val = ""
-            html.append(f'<td class="{cls} {align}">{val}</td>')
-        html.append('</tr>')
-
-    html.append('</tbody></table></div>')
-    st.markdown("".join(html), unsafe_allow_html=True)
+        render_pivot_html(piv_view, confirmed)
+        st.markdown('<div class="wupi-gap-after-pivot"></div>', unsafe_allow_html=True)
 
         pairs = piv_full[["SKU", "Nome Prodotto"]].drop_duplicates().sort_values(["SKU", "Nome Prodotto"], kind="stable")
         options = [f'{r["SKU"]} — {r["Nome Prodotto"]}' for _, r in pairs.iterrows()]
@@ -1887,7 +1813,6 @@ tr.confirmed td.tot {{ background: rgba(235, 235, 235, 0.9); backdrop-filter: bl
 
         render_color_cards(df, sku, prod, confirmed, sig, state)
 
-
     with tabs[1]:
         st.subheader("Etichette (152×102 mm orizzontale)")
         st.caption("Se Nome/Cognome studente vuoti → Docenti / ATA come classe e nominativo da Docente/ATA.")
@@ -1924,4 +1849,5 @@ tr.confirmed td.tot {{ background: rgba(235, 235, 235, 0.9); backdrop-filter: bl
         page_finanze(df)
 
 if __name__ == "__main__":
+    global_css()
     main()
