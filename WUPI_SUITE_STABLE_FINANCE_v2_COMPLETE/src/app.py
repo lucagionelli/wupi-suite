@@ -606,6 +606,16 @@ a, a:visited { color:#1d1d1f; }
 }
 [data-testid="stMetric"] { padding: 16px; }
 
+/* Taglie (pills) globali */
+.chips { display:flex; flex-wrap:wrap; gap:6px; }
+.chip {
+  display:inline-flex; gap:6px; align-items:center;
+  padding: 4px 10px; border-radius: 8px;
+  background-color: #f0f0f2;
+  font-size: 13px; font-weight: 500; color: #555;
+}
+.chip .q { font-weight:700; font-size:14px; color: #1d1d1f; }
+
 .wupi-gap-after-pivot { height: 14px; }
 </style>
 """, unsafe_allow_html=True)
@@ -1598,6 +1608,28 @@ def page_finanze(df_norm: pd.DataFrame) -> None:
         for c in ["Prezzo vendita ex IVA", "Prezzo acquisto", "Importo ex IVA", "Margine"]: show[c] = show[c].map(_eur)
         st.dataframe(show, use_container_width=True, hide_index=True)
 
+@st.dialog("Associa immagine mancante")
+def upload_missing_modal(r, side):
+    st.markdown(f"Stai caricando il **{side.upper()}** per:")
+    st.markdown(f"**{r['SKU']}** — {r['Nome Prodotto']} ({r['Colore']})")
+    
+    uid = hashlib.md5(f"{r['SKU']}_{r['Nome Prodotto']}_{r['Colore']}_{side}".encode()).hexdigest()[:10]
+    
+    fup = st.file_uploader(f"Carica file (.jpg, .png)", type=["png","jpg","jpeg"], key=f"modal_up_{uid}")
+    if fup:
+        if st.button("Salva abbinamento", type="primary", use_container_width=True):
+            save_path = APP_SUPPORT / "manual_mockups" / f"{r['SKU_KEY']}__{r.get('MODEL_KEY','')}__{r['COL_KEY']}__{side}{Path(fup.name).suffix or '.jpg'}"
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            save_path.write_bytes(fup.getvalue())
+            
+            try: raw_manual = json_loads(BIBBIA_MANUAL_PATH.read_text(encoding="utf-8"))
+            except Exception: raw_manual = {}
+            
+            keybase = [str(r["SKU_KEY"]), str(r.get("MODEL_KEY","")), str(r["COL_KEY"])]
+            raw_manual["|||".join(keybase + [side])] = str(save_path)
+            save_manual_mockups(raw_manual)
+            
+            st.rerun()
 
 def page_bibbia(df_norm: pd.DataFrame) -> None:
     st.subheader("Bibbia maker (A3) — da XLSX + mockup batch")
@@ -1632,48 +1664,53 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
     with k2: st.metric("Complete (F+R)", int(((variants["Fronte"] == "✅") & (variants["Retro"] == "✅")).sum()))
     with k3: st.metric("Con mancanti", int(((variants["Fronte"] == "❌") | (variants["Retro"] == "❌")).sum()))
 
-    st.write("Controllo match (preview)")
-    st.dataframe(
-        variants[["SKU", "Nome Prodotto", "Colore", "Totale", "Taglie", "Incisioni", "Fronte", "Retro"]],
-        use_container_width=True,
-        hide_index=True,
-    )
+    st.markdown("### Controllo match")
+    
+    st.markdown("""
+    <style>
+    .bibbia-header { font-weight: 600; padding-bottom: 8px; border-bottom: 2px solid #e5e5ea; color: #86868b; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    h1, h2, h3, h4, h5, h6 = st.columns([1.5, 2.5, 3, 2.5, 1, 1])
+    with h1: st.markdown("<div class='bibbia-header'>SKU / Colore</div>", unsafe_allow_html=True)
+    with h2: st.markdown("<div class='bibbia-header'>Prodotto</div>", unsafe_allow_html=True)
+    with h3: st.markdown("<div class='bibbia-header'>Taglie</div>", unsafe_allow_html=True)
+    with h4: st.markdown("<div class='bibbia-header'>Incisioni</div>", unsafe_allow_html=True)
+    with h5: st.markdown("<div class='bibbia-header'>Fronte</div>", unsafe_allow_html=True)
+    with h6: st.markdown("<div class='bibbia-header'>Retro</div>", unsafe_allow_html=True)
 
-    missing = variants[(variants["Fronte"] == "❌") | (variants["Retro"] == "❌")].copy()
-    if not missing.empty:
-        st.markdown("### Associa manualmente i mancanti")
-        st.caption("Per le righe con ❌ puoi caricare manualmente il file corretto. I file manuali vengono ricordati.")
-        try: raw_manual = json_loads(BIBBIA_MANUAL_PATH.read_text(encoding="utf-8"))
-        except Exception: raw_manual = {}
+    for _, r in variants.iterrows():
+        c1, c2, c3, c4, c5, c6 = st.columns([1.5, 2.5, 3, 2.5, 1, 1])
+        
+        with c1:
+            st.markdown(f"**{r['SKU']}**<br><span style='color:#555; font-size:14px;'>{r['Colore']}</span>", unsafe_allow_html=True)
+        with c2:
+            st.markdown(f"<div style='font-weight:500; margin-top:2px;'>{r['Nome Prodotto']}</div>", unsafe_allow_html=True)
+        with c3:
+            items = _parse_taglie_items(r['Taglie'])
+            if items:
+                pills = "".join([f'<span class="chip" style="margin-bottom:4px;">{t} <span class="q">{q}</span></span>' for t, q in items])
+                st.markdown(f"<div class='chips'>{pills}</div>", unsafe_allow_html=True)
+        with c4:
+            inc_html = str(r['Incisioni']).replace('\n', '<br>')
+            st.markdown(f"<div style='font-size:12px; color:#666; line-height:1.3;'>{inc_html}</div>", unsafe_allow_html=True)
+        with c5:
+            if r["Fronte"] == "✅":
+                st.markdown("<div style='margin-top:6px;'>✅</div>", unsafe_allow_html=True)
+            else:
+                if st.button("❌", key=f"f_{r['SKU_KEY']}_{r['COL_KEY']}_{r.get('MODEL_KEY','')}", help="Aggiungi Fronte"):
+                    upload_missing_modal(r, "fronte")
+        with c6:
+            if r["Retro"] == "✅":
+                st.markdown("<div style='margin-top:6px;'>✅</div>", unsafe_allow_html=True)
+            else:
+                if st.button("❌", key=f"r_{r['SKU_KEY']}_{r['COL_KEY']}_{r.get('MODEL_KEY','')}", help="Aggiungi Retro"):
+                    upload_missing_modal(r, "retro")
+        
+        st.markdown("<hr style='margin:0.25em 0; border:none; border-bottom:1px solid #f0f0f2;'>", unsafe_allow_html=True)
 
-        for _, r in missing.iterrows():
-            title = f'{r["SKU"]} — {r["Nome Prodotto"]} — {r["Colore"]}'
-            uid = hashlib.md5(title.encode()).hexdigest()[:10]
-            with st.expander(title, expanded=False):
-                c1, c2 = st.columns(2)
-                keybase = [str(r["SKU_KEY"]), str(r.get("MODEL_KEY","")), str(r["COL_KEY"])]
-                with c1:
-                    st.write(f"Fronte: {r['Fronte']}")
-                    fup = st.file_uploader("Carica fronte", type=["png","jpg","jpeg"], key=f"manual_front_{uid}")
-                    if fup is not None:
-                        save_path = APP_SUPPORT / "manual_mockups" / f"{r['SKU_KEY']}__{r.get('MODEL_KEY','')}__{r['COL_KEY']}__fronte{Path(fup.name).suffix or '.jpg'}"
-                        save_path.parent.mkdir(parents=True, exist_ok=True)
-                        save_path.write_bytes(fup.getvalue())
-                        raw_manual["|||".join(keybase + ["fronte"])] = str(save_path)
-                        save_manual_mockups(raw_manual)
-                        st.success("Fronte associato.")
-                with c2:
-                    st.write(f"Retro: {r['Retro']}")
-                    bup = st.file_uploader("Carica retro", type=["png","jpg","jpeg"], key=f"manual_back_{uid}")
-                    if bup is not None:
-                        save_path = APP_SUPPORT / "manual_mockups" / f"{r['SKU_KEY']}__{r.get('MODEL_KEY','')}__{r['COL_KEY']}__retro{Path(bup.name).suffix or '.jpg'}"
-                        save_path.parent.mkdir(parents=True, exist_ok=True)
-                        save_path.write_bytes(bup.getvalue())
-                        raw_manual["|||".join(keybase + ["retro"])] = str(save_path)
-                        save_manual_mockups(raw_manual)
-                        st.success("Retro associato.")
-        if st.button("🔄 Ricarica abbinamenti manuali"):
-            st.rerun()
+    st.markdown("<br>", unsafe_allow_html=True)
 
     with st.expander("Opzioni PDF A3", expanded=False):
         c1, c2, c3 = st.columns(3)
@@ -1692,7 +1729,6 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
     if st.button("Genera PDF Bibbia (A3)", type="primary"):
         pdf = make_bibbia_pdf(variants, mock_map, cfg, brand_logo=logo_bytes)
         st.download_button("⬇️ Scarica PDF Bibbia", data=pdf, file_name="wupi_bibbia_A3.pdf", mime="application/pdf")
-
 
 # -------------------------
 # UI
@@ -1713,7 +1749,6 @@ def main() -> None:
             st.image(str(LOGO_PATH), use_container_width=True)
 
     uploaded = st.file_uploader("Carica Excel (.xlsx)", type=["xlsx"])
-    st.caption("Qui carica **solo** il file Excel (.xlsx). I mockup immagini (JPG/PNG) vanno nella tab **Bibbia maker** più sotto.")
     if not uploaded:
         st.info("Carica un file per iniziare.")
         return
