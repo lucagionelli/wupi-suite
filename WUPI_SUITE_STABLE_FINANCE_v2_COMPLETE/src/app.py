@@ -29,7 +29,6 @@ COSTS_PATH = APP_SUPPORT / "costs.json"
 BIBBIA_MANUAL_PATH = APP_SUPPORT / "bibbia_manual.json"
 
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
-# In alcuni zip la cartella assets sta a livello progetto (../assets)
 if not ASSETS_DIR.exists():
     ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 LOGO_PATH = ASSETS_DIR / "wupi.png"
@@ -175,9 +174,7 @@ COLOR_ALIAS_MAP = {
   "gh": "grey_heather"
 }
 
-# --- Color matching helpers (used by Bibbia Maker) ---
 def color_to_canon_key(s: str) -> str:
-    """Return canonical color key used for matching mockups. Keeps display color untouched elsewhere."""
     t = _norm_key(s)
     if not t:
         return ""
@@ -200,7 +197,7 @@ def clean_str(x) -> str:
 def normalize_size(s: str) -> str:
     s2 = clean_str(s).upper()
     if not s2:
-        return ""  # requested: keep blank if missing
+        return ""
     return SIZE_ALIAS.get(s2, s2)
 
 def _norm_colname(c: str) -> str:
@@ -212,7 +209,6 @@ def _norm_colname(c: str) -> str:
     return c2
 
 def standardize_required_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Rende robusti i nomi colonna (case/accents/spazi)."""
     alias = {
         "SKU": ["sku", "codice", "codice articolo", "codice art", "articolo sku", "sku articolo"],
         "Nome Prodotto": ["nome prodotto", "prodotto", "articolo", "descrizione", "nome"],
@@ -391,30 +387,27 @@ def render_pivot_html(piv: pd.DataFrame, confirmed: set[str]) -> None:
     cols = list(view.columns)
 
     css = f"""<style>
-/* Pivot Table in stile Glass */
+/* Tabella piatta e solida */
 .table-wrap {{ 
     overflow:auto; 
-    background: rgba(255, 255, 255, 0.55);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(0, 0, 0, 0.08); 
-    border-radius: 20px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+    background-color: #ffffff;
+    border: 1px solid #e5e5ea; 
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
 }}
 table.wupi {{ border-collapse:separate; border-spacing:0; width:100%; font-size:14px; }}
-table.wupi th, table.wupi td {{ padding:12px 12px; border-bottom:1px solid rgba(0,0,0,.04); vertical-align:middle; color: #1d1d1f; }}
+table.wupi th, table.wupi td {{ padding:12px; border-bottom:1px solid #f0f0f2; vertical-align:middle; color: #1d1d1f; }}
 table.wupi th {{ 
     position:sticky; top:0; 
-    background: rgba(250, 250, 250, 0.85); 
-    backdrop-filter: blur(10px);
-    z-index:2; font-weight:700; letter-spacing: -0.2px;
+    background-color: #fafafc; 
+    z-index:2; font-weight:600; letter-spacing: -0.2px;
 }}
-table.wupi td {{ background: transparent; }}
-table.wupi td.tot, table.wupi th.tot {{ position:sticky; right:0; z-index:3; font-weight:800; }}
-table.wupi th.tot {{ background: rgba(250, 250, 250, 0.95); }}
-table.wupi td.tot {{ background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(10px); }}
-tr.confirmed td {{ background: rgba(235, 235, 235, 0.7); opacity: 0.8; }}
-tr.confirmed td.tot {{ background: rgba(235, 235, 235, 0.9); backdrop-filter: blur(10px); }}
+table.wupi td {{ background-color: #ffffff; }}
+table.wupi td.tot, table.wupi th.tot {{ position:sticky; right:0; z-index:3; font-weight:700; }}
+table.wupi th.tot {{ background-color: #fafafc; border-left: 1px solid #f0f0f2; }}
+table.wupi td.tot {{ background-color: #fafafc; border-left: 1px solid #f0f0f2; }}
+tr.confirmed td {{ background-color: #f5f5f7; }}
+tr.confirmed td.tot {{ background-color: #eaeaef; }}
 .center {{ text-align:center; }}
 </style>"""
 
@@ -1092,10 +1085,8 @@ def product_model_key(nome_prodotto: str) -> str:
     part = s.split("|", 1)[1].strip() if "|" in s else s
     part_low = part.lower()
     part_low = re.sub(r"^\s*modello\s+", "", part_low, flags=re.IGNORECASE)
-    
-    clothing_pattern = r"(?i)\b(hoodie|t\-shirt|tshirt|shirt|sweatshirt|felpa|maglia|maglietta|pant|pants|pantalone|pantaloni|short|shorts|zip|crew|giacca|jacket|kway|k\-way|college|polo|penne|kit)\b"
+    clothing_pattern = r"(?i)\b(hoodie|t\-shirt|tshirt|shirt|sweatshirt|felpa|maglia|maglietta|pant|pants|pantalone|pantaloni|short|shorts|zip|crew|giacca|jacket|kway|k\-way|polo|penne|kit)\b"
     part_low = re.sub(clothing_pattern, "", part_low)
-    
     part_low = re.sub(r"[^a-z0-9]+", "_", part_low)
     part_low = re.sub(r"_+", "_", part_low).strip("_")
     return part_low
@@ -1104,19 +1095,15 @@ def find_mockup_bytes(mock_map: dict, sku_key: str, model_key: str, col_key: str
     side = side or ""
     model_key = (model_key or "").strip()
 
-    # 1. exact with model
     k = (sku_key, model_key, col_key, side)
     if k in mock_map: return mock_map[k]
 
-    # 2. generic only if filename has no model
     k = (sku_key, "", col_key, side)
     if k in mock_map: return mock_map[k]
 
-    # 3. side-less exact with model
     k = (sku_key, model_key, col_key, "")
     if k in mock_map: return mock_map[k]
 
-    # 4. side-less generic only if filename has no model
     k = (sku_key, "", col_key, "")
     if k in mock_map: return mock_map[k]
 
@@ -1221,7 +1208,7 @@ def bibbia_variants(df_norm: pd.DataFrame) -> pd.DataFrame:
     tmp["CLS_SHOW"] = tmp["Classe"].map(clean_str)
     tmp.loc[tmp["CLS_SHOW"].eq(""), "CLS_SHOW"] = "Docenti / ATA"
 
-    clothing_pattern = r"(?i)\b(hoodie|t\-shirt|tshirt|shirt|sweatshirt|felpa|maglia|maglietta|pant|pants|pantalone|pantaloni|short|shorts|zip|crew|giacca|jacket|kway|k\-way|college|polo|penne|kit)\b"
+    clothing_pattern = r"(?i)\b(hoodie|t\-shirt|tshirt|shirt|sweatshirt|felpa|maglia|maglietta|pant|pants|pantalone|pantaloni|short|shorts|zip|crew|giacca|jacket|kway|k\-way|polo|penne|kit)\b"
     is_clothing = tmp["Nome Prodotto"].astype(str).str.contains(clothing_pattern, regex=True)
     tmp.loc[is_clothing, "INC_RAW"] = ""
 
@@ -1368,7 +1355,7 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
             _draw_image_fit(c, front, *box1)
         elif cfg.show_missing_boxes:
             c.setLineWidth(1)
-            c.setStrokeGray(0.8) # Bordo grigio chiaro invece che nero
+            c.setStrokeGray(0.8)
             c.rect(*box1)
             c.setFillGray(0.5)
             c.setFont("Helvetica", 14)
@@ -1384,9 +1371,6 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
             c.setFont("Helvetica", 14)
             c.drawCentredString(box2[0] + box2[2] / 2, box2[1] + box2[3] / 2, "RETRO MANCANTE")
 
-
-        # --- BANDA INFERIORE (Sfondo grigio rimosso!) ---
-        
         # 4. Testo SKU / Colore / Totale
         c.setFillGray(0)
         c.setFont("Helvetica-Bold", 16)
@@ -1434,11 +1418,9 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
                 if cur_x + pw > pills_left_x + pills_max_w:
                     break
 
-                # Disegna sfondo della pillola
                 c.setFillColorRGB(0.92, 0.92, 0.93)
                 c.roundRect(cur_x, rect_y, pw, pill_h, pill_radius, stroke=0, fill=1)
                 
-                # Testo della pillola
                 c.setFillGray(0)
                 c.setFont("Helvetica", pill_font_regular)
                 c.drawString(cur_x + pad_x, text_baseline, taglia_txt)
@@ -1454,11 +1436,9 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
             by = margin
             box_h = footer_h
 
-            # Sfondo grigio arrotondato SOLO per questo box
             c.setFillColorRGB(0.94, 0.94, 0.95)
             c.roundRect(bx, by, box_w, box_h, 8, stroke=0, fill=1)
 
-            # Titolo
             c.setFillGray(0)
             c.setFont("Helvetica-Bold", 11)
             c.drawString(bx + 12, by + box_h - 16, "PERSONALIZZAZIONI")
@@ -1469,16 +1449,13 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
                 pers = lines[1]
                 details = lines[2:]
 
-                # Contatori
                 c.setFont("Helvetica-Bold", 9)
                 c.drawString(bx + 12, by + box_h - 30, f"{neutri}   |   {pers}")
                 
-                # Linea di divisione elegante
                 c.setLineWidth(0.5)
                 c.setStrokeColorRGB(0.85, 0.85, 0.85)
                 c.line(bx + 12, by + box_h - 36, bx + box_w - 12, by + box_h - 36)
 
-                # Nomi in elenco puntato
                 y = by + box_h - 50
                 max_w = box_w - 24
                 for line in details:
@@ -1487,11 +1464,9 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
                     txt = line.strip()
                     if not txt: continue
 
-                    # Disegna pallino scuro
                     c.setFillColorRGB(0.2, 0.2, 0.2)
                     c.circle(bx + 15, y + 2.5, 1.5, stroke=0, fill=1)
 
-                    # Disegna testo
                     c.setFillGray(0)
                     c.setFont("Helvetica", 9)
                     while c.stringWidth(txt, "Helvetica", 9) > max_w - 12 and len(txt) > 2:
@@ -1626,11 +1601,10 @@ def page_finanze(df_norm: pd.DataFrame) -> None:
 
 def page_bibbia(df_norm: pd.DataFrame) -> None:
     st.subheader("Bibbia maker (A3) — da XLSX + mockup batch")
-    st.caption("Carica i mockup in batch (JPG/PNG) con naming permissivo: SKU_modello_colore_fronte / SKU_modello_colore_retro.")
+    st.caption("Carica i mockup in batch (JPG/PNG) con naming permissivo: SKU_modello_colore_fronte / SKU_modello_colore_retro. Una pagina A3 per ogni SKU+Prodotto+Colore.")
 
     if "bibbia_uploader_ver" not in st.session_state: st.session_state["bibbia_uploader_ver"] = 0
 
-    # Uploader a tutta larghezza
     mock_files = st.file_uploader(
         "Carica qui le immagini Mockup",
         type=["png", "jpg", "jpeg"],
@@ -1638,7 +1612,6 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
         key=f"bibbia_mockups_{st.session_state['bibbia_uploader_ver']}",
     )
     
-    # Bottone elimina messo ordinatamente sotto
     col_btn, _ = st.columns([1, 4])
     with col_btn:
         if st.button("🗑 Svuota immagini", use_container_width=True):
@@ -1649,7 +1622,6 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
 
     mock_map = parse_mockup_files(mock_files or [])
     mock_map.update(load_manual_mockups())
-    # ... (il resto della funzione page_bibbia prosegue normalmente da qui)
 
     variants = bibbia_variants(df_norm)
     variants["Fronte"] = variants.apply(lambda r: "✅" if find_mockup_bytes(mock_map, r["SKU_KEY"], r.get("MODEL_KEY",""), r["COL_KEY"], "fronte") is not None else "❌", axis=1)
@@ -1735,7 +1707,7 @@ def main() -> None:
     top_l, top_r = st.columns([7, 1])
     with top_l:
         st.title("WUPI Suite")
-        st.caption(f"Build: STUDIO_v3_GLASS (stable) • {Path(__file__).resolve()}")
+        st.caption(f"Build: STUDIO_v3_FLAT_CLEAN (stable) • {Path(__file__).resolve()}")
     with top_r:
         if LOGO_PATH.exists():
             st.image(str(LOGO_PATH), use_container_width=True)
@@ -1761,7 +1733,7 @@ def main() -> None:
     tabs = st.tabs(["📦 Report acquisto", "🏷 Etichette", "💸 Ordini da pagare", "📖 Bibbia maker", "💰 Finanze"])
     with tabs[0]:
         st.subheader("Pivot ordine fornitore")
-        st.caption("0 nascosti, Totale fisso a destra (bold). Le righe confermate diventano grigie/verdi.")
+        st.caption("0 nascosti, Totale fisso a destra (bold). Le righe confermate diventano grigie chiare.")
         piv_full = pivot_report(df)
 
         q = st.text_input("🔍 Cerca (SKU / Prodotto / Colore)", key="pivot_search")
@@ -1774,65 +1746,9 @@ def main() -> None:
                 | piv_full["Colore"].astype(str).str.contains(qq, case=False, na=False)
             ].copy()
 
-        def render_pivot_html(piv: pd.DataFrame, confirmed: set[str]) -> None:
-    view = piv.copy()
-    for c in [s for s in SIZE_ORDER if s in view.columns]:
-        view[c] = view[c].replace({0: ""})
-    view["Totale"] = piv["Totale"].astype(int)
+        render_pivot_html(piv_view, confirmed)
+        st.markdown('<div class="wupi-gap-after-pivot"></div>', unsafe_allow_html=True)
 
-    cols = list(view.columns)
-
-    css = f"""<style>
-/* Tabella piatta e solida */
-.table-wrap {{ 
-    overflow:auto; 
-    background-color: #ffffff;
-    border: 1px solid #e5e5ea; 
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
-}}
-table.wupi {{ border-collapse:separate; border-spacing:0; width:100%; font-size:14px; }}
-table.wupi th, table.wupi td {{ padding:12px; border-bottom:1px solid #f0f0f2; vertical-align:middle; color: #1d1d1f; }}
-table.wupi th {{ 
-    position:sticky; top:0; 
-    background-color: #fafafc; 
-    z-index:2; font-weight:600; letter-spacing: -0.2px;
-}}
-table.wupi td {{ background-color: #ffffff; }}
-table.wupi td.tot, table.wupi th.tot {{ position:sticky; right:0; z-index:3; font-weight:700; }}
-table.wupi th.tot {{ background-color: #fafafc; border-left: 1px solid #f0f0f2; }}
-table.wupi td.tot {{ background-color: #fafafc; border-left: 1px solid #f0f0f2; }}
-tr.confirmed td {{ background-color: #f5f5f7; }}
-tr.confirmed td.tot {{ background-color: #eaeaef; }}
-.center {{ text-align:center; }}
-</style>"""
-
-    html: list[str] = []
-    html.append(css)
-    html.append('<div class="table-wrap"><table class="wupi">')
-    html.append('<thead><tr>')
-
-    for c in cols:
-        cls = "tot" if c == "Totale" else ""
-        align = "center" if c in SIZE_ORDER + ["Totale"] else ""
-        html.append(f'<th class="{cls} {align}">{c}</th>')
-
-    html.append('</tr></thead><tbody>')
-
-    for _, r in view.iterrows():
-        k = normalize_key(key_row(clean_str(r.get("SKU", "")), clean_str(r.get("Nome Prodotto", "")), clean_str(r.get("Colore", ""))))
-        tr_cls = "confirmed" if k in confirmed else ""
-        html.append(f'<tr class="{tr_cls}">')
-        for c in cols:
-            cls = "tot" if c == "Totale" else ""
-            align = "center" if c in SIZE_ORDER + ["Totale"] else ""
-            val = r[c]
-            if pd.isna(val): val = ""
-            html.append(f'<td class="{cls} {align}">{val}</td>')
-        html.append('</tr>')
-
-    html.append('</tbody></table></div>')
-    st.markdown("".join(html), unsafe_allow_html=True)
         pairs = piv_full[["SKU", "Nome Prodotto"]].drop_duplicates().sort_values(["SKU", "Nome Prodotto"], kind="stable")
         options = [f'{r["SKU"]} — {r["Nome Prodotto"]}' for _, r in pairs.iterrows()]
         
