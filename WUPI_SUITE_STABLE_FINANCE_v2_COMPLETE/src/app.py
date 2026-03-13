@@ -1642,16 +1642,16 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
         if st.button("🔄 Ricarica abbinamenti manuali"):
             st.rerun()
 
-    with st.expander("Opzioni PDF A3", expanded=False):
+   with st.expander("Opzioni PDF A3", expanded=False):
         c1, c2, c3 = st.columns(3)
-        with c1: margin_mm = st.number_input("Margine (mm)", min_value=4.0, max_value=30.0, value=10.0, step=1.0)
-        with c2: gap_mm = st.number_input("Spazio tra fronte/retro (mm)", min_value=2.0, max_value=30.0, value=6.0, step=1.0)
-        with c3: show_missing = st.checkbox("Mostra riquadri MANCANTE", value=True)
+        with c1: margin_mm = st.number_input("Margine (mm)", min_value=4.0, max_value=30.0, value=10.0, step=1.0, key="bibbia_margin_mm")
+        with c2: gap_mm = st.number_input("Spazio tra fronte/retro (mm)", min_value=2.0, max_value=30.0, value=6.0, step=1.0, key="bibbia_gap_mm")
+        with c3: show_missing = st.checkbox("Mostra riquadri MANCANTE", value=True, key="bibbia_show_missing")
 
     with st.expander("Font", expanded=False):
         f1, f2 = st.columns(2)
-        with f1: header_pt = st.number_input("Titolo (pt)", min_value=12.0, max_value=36.0, value=18.0, step=0.5)
-        with f2: caption_pt = st.number_input("Caption (pt)", min_value=8.0, max_value=20.0, value=11.0, step=0.5)
+        with f1: header_pt = st.number_input("Titolo (pt)", min_value=12.0, max_value=36.0, value=18.0, step=0.5, key="bibbia_header_pt")
+        with f2: caption_pt = st.number_input("Caption (pt)", min_value=8.0, max_value=20.0, value=11.0, step=0.5, key="bibbia_caption_pt")
 
     cfg = BibbiaCfg(margin_mm=float(margin_mm), gap_mm=float(gap_mm), header_pt=float(header_pt), caption_pt=float(caption_pt), show_missing_boxes=bool(show_missing))
     logo_bytes = (LOGO_PATH.read_bytes() if LOGO_PATH.exists() else None)
