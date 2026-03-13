@@ -1344,6 +1344,7 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
         header_h = 24 * mm_to_pt
         footer_h = 34 * mm_to_pt
 
+        # 1. Logo
         if logo_img:
             c.drawImage(
                 logo_img,
@@ -1355,6 +1356,8 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
                 mask="auto",
             )
 
+        # 2. Intestazione (Titolo SKU e Colore)
+        c.setFillGray(0)
         c.setFont("Helvetica-Bold", cfg.header_pt)
         c.drawString(
             margin + (32 * mm_to_pt if logo_img else 0),
@@ -1367,6 +1370,7 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
             f"{col}",
         )
 
+        # 3. Disegno delle Immagini (Fronte / Retro)
         img_y0 = margin + footer_h + gap
         img_h = h - margin - header_h - img_y0
         img_w = (w - 2 * margin - gap) / 2
@@ -1381,7 +1385,9 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
             _draw_image_fit(c, front, *box1)
         elif cfg.show_missing_boxes:
             c.setLineWidth(1)
+            c.setStrokeGray(0.8) # Bordo grigio chiaro invece che nero
             c.rect(*box1)
+            c.setFillGray(0.5)
             c.setFont("Helvetica", 14)
             c.drawCentredString(box1[0] + box1[2] / 2, box1[1] + box1[3] / 2, "FRONTE MANCANTE")
 
@@ -1389,29 +1395,32 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
             _draw_image_fit(c, back, *box2)
         elif cfg.show_missing_boxes:
             c.setLineWidth(1)
+            c.setStrokeGray(0.8)
             c.rect(*box2)
+            c.setFillGray(0.5)
             c.setFont("Helvetica", 14)
             c.drawCentredString(box2[0] + box2[2] / 2, box2[1] + box2[3] / 2, "RETRO MANCANTE")
 
-        c.setFillGray(0.96)
-        c.rect(margin, margin, w - 2 * margin, footer_h, stroke=0, fill=1)
-        c.setFillGray(0)
 
-        c.setFont("Helvetica-Bold", cfg.caption_pt * 1.5)
+        # --- BANDA INFERIORE (Sfondo grigio rimosso!) ---
+        
+        # 4. Testo SKU / Colore / Totale
+        c.setFillGray(0)
+        c.setFont("Helvetica-Bold", 16)
         c.drawString(
-            margin + 6 * mm_to_pt,
+            margin,
             margin + footer_h - 8 * mm_to_pt,
             f"SKU: {sku_base}   Colore: {col}   Totale: {totale}",
         )
 
-        pills_left_x = margin + 6 * mm_to_pt
-        pills_y = margin + footer_h - 18 * mm_to_pt
-        pills_max_w = (w - 2 * margin - 12 * mm_to_pt)
-
         box_w = 0
         if has_incisioni:
             box_w = 82 * mm_to_pt
-            pills_max_w = (w - 2 * margin - 12 * mm_to_pt - box_w - 10 * mm_to_pt)
+
+        # 5. Box delle Taglie (Pills)
+        pills_left_x = margin
+        pills_y = margin + footer_h - 20 * mm_to_pt
+        pills_max_w = (w - 2 * margin - box_w - 10 * mm_to_pt) if has_incisioni else (w - 2 * margin)
 
         items = _parse_taglie_items(taglie)
         cur_x = pills_left_x
@@ -1419,14 +1428,14 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
         if items:
             pill_font_regular = 15
             pill_font_bold = 15
-            pill_h = 24
-            pill_radius = 12
-            pad_x = 10
+            pill_h = 26
+            pill_radius = 13
+            pad_x = 12
             gap_inner = 8
-            gap_between = 10
+            gap_between = 12
             
             rect_y = pills_y - 6
-            text_baseline = rect_y + 7.5
+            text_baseline = rect_y + 8
 
             for taglia, qty in items:
                 taglia_txt = str(taglia)
@@ -1442,10 +1451,12 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
                 if cur_x + pw > pills_left_x + pills_max_w:
                     break
 
-                c.setFillGray(0.92)
+                # Disegna sfondo della pillola
+                c.setFillColorRGB(0.92, 0.92, 0.93)
                 c.roundRect(cur_x, rect_y, pw, pill_h, pill_radius, stroke=0, fill=1)
+                
+                # Testo della pillola
                 c.setFillGray(0)
-
                 c.setFont("Helvetica", pill_font_regular)
                 c.drawString(cur_x + pad_x, text_baseline, taglia_txt)
 
@@ -1454,19 +1465,20 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
 
                 cur_x += pw + gap_between
 
+        # 6. Box Personalizzazioni in basso a destra
         if has_incisioni:
             bx = w - margin - box_w
-            by = margin + 6 * mm_to_pt
-            box_h = footer_h - 10 * mm_to_pt
+            by = margin
+            box_h = footer_h
 
-            # Sfondo grigio arrotondato
-            c.setFillColorRGB(0.93, 0.93, 0.94)
-            c.roundRect(bx, by, box_w, box_h, 6, stroke=0, fill=1)
+            # Sfondo grigio arrotondato SOLO per questo box
+            c.setFillColorRGB(0.94, 0.94, 0.95)
+            c.roundRect(bx, by, box_w, box_h, 8, stroke=0, fill=1)
 
             # Titolo
             c.setFillGray(0)
-            c.setFont("Helvetica-Bold", 10)
-            c.drawString(bx + 8, by + box_h - 14, "PERSONALIZZAZIONI")
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(bx + 12, by + box_h - 16, "PERSONALIZZAZIONI")
 
             lines = incisioni.split("\n")
             if len(lines) >= 2:
@@ -1474,32 +1486,37 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
                 pers = lines[1]
                 details = lines[2:]
 
-                c.setFont("Helvetica-Bold", 8.5)
-                c.drawString(bx + 8, by + box_h - 26, f"{neutri}   |   {pers}")
+                # Contatori
+                c.setFont("Helvetica-Bold", 9)
+                c.drawString(bx + 12, by + box_h - 30, f"{neutri}   |   {pers}")
                 
+                # Linea di divisione elegante
                 c.setLineWidth(0.5)
                 c.setStrokeColorRGB(0.85, 0.85, 0.85)
-                c.line(bx + 8, by + box_h - 32, bx + box_w - 8, by + box_h - 32)
+                c.line(bx + 12, by + box_h - 36, bx + box_w - 12, by + box_h - 36)
 
-                y = by + box_h - 44
-                max_w = box_w - 16
+                # Nomi in elenco puntato
+                y = by + box_h - 50
+                max_w = box_w - 24
                 for line in details:
-                    if y < by + 6:
+                    if y < by + 8:
                         break
                     txt = line.strip()
                     if not txt: continue
 
+                    # Disegna pallino scuro
                     c.setFillColorRGB(0.2, 0.2, 0.2)
-                    c.circle(bx + 11, y + 2.5, 1.5, stroke=0, fill=1)
+                    c.circle(bx + 15, y + 2.5, 1.5, stroke=0, fill=1)
 
+                    # Disegna testo
                     c.setFillGray(0)
-                    c.setFont("Helvetica", 8.5)
-                    while c.stringWidth(txt, "Helvetica", 8.5) > max_w - 8 and len(txt) > 2:
+                    c.setFont("Helvetica", 9)
+                    while c.stringWidth(txt, "Helvetica", 9) > max_w - 12 and len(txt) > 2:
                         txt = txt[:-1]
                     if txt != line.strip(): txt = txt.rstrip() + "…"
 
-                    c.drawString(bx + 16, y, txt)
-                    y -= 10
+                    c.drawString(bx + 22, y, txt)
+                    y -= 12
         
         c.showPage()
 
