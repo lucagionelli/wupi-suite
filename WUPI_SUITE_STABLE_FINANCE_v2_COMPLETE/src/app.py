@@ -1601,12 +1601,16 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
 
         for _, r in missing.iterrows():
             title = f'{r["SKU"]} — {r["Nome Prodotto"]} — {r["Colore"]}'
+            # Creiamo un ID univoco e stabile basato sul titolo esatto per evitare chiavi duplicate
+            uid = hashlib.md5(title.encode()).hexdigest()[:10]
+            
             with st.expander(title, expanded=False):
                 c1, c2 = st.columns(2)
                 keybase = [str(r["SKU_KEY"]), str(r.get("MODEL_KEY","")), str(r["COL_KEY"])]
                 with c1:
                     st.write(f"Fronte: {r['Fronte']}")
-                    fup = st.file_uploader("Carica fronte", type=["png","jpg","jpeg"], key=f"manual_front_{r['SKU_KEY']}_{r['COL_KEY']}_{r.get('MODEL_KEY','')}")
+                    # Usiamo l'UID per la key di Streamlit
+                    fup = st.file_uploader("Carica fronte", type=["png","jpg","jpeg"], key=f"manual_front_{uid}")
                     if fup is not None:
                         save_path = APP_SUPPORT / "manual_mockups" / f"{r['SKU_KEY']}__{r.get('MODEL_KEY','')}__{r['COL_KEY']}__fronte{Path(fup.name).suffix or '.jpg'}"
                         save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1616,7 +1620,8 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
                         st.success("Fronte associato.")
                 with c2:
                     st.write(f"Retro: {r['Retro']}")
-                    bup = st.file_uploader("Carica retro", type=["png","jpg","jpeg"], key=f"manual_back_{r['SKU_KEY']}_{r['COL_KEY']}_{r.get('MODEL_KEY','')}")
+                    # Usiamo l'UID per la key di Streamlit
+                    bup = st.file_uploader("Carica retro", type=["png","jpg","jpeg"], key=f"manual_back_{uid}")
                     if bup is not None:
                         save_path = APP_SUPPORT / "manual_mockups" / f"{r['SKU_KEY']}__{r.get('MODEL_KEY','')}__{r['COL_KEY']}__retro{Path(bup.name).suffix or '.jpg'}"
                         save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1626,6 +1631,24 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
                         st.success("Retro associato.")
         if st.button("🔄 Ricarica abbinamenti manuali"):
             st.rerun()
+
+    with st.expander("Opzioni PDF A3", expanded=False):
+        c1, c2, c3 = st.columns(3)
+        with c1: margin_mm = st.number_input("Margine (mm)", min_value=4.0, max_value=30.0, value=10.0, step=1.0)
+        with c2: gap_mm = st.number_input("Spazio tra fronte/retro (mm)", min_value=2.0, max_value=30.0, value=6.0, step=1.0)
+        with c3: show_missing = st.checkbox("Mostra riquadri MANCANTE", value=True)
+
+    with st.expander("Font", expanded=False):
+        f1, f2 = st.columns(2)
+        with f1: header_pt = st.number_input("Titolo (pt)", min_value=12.0, max_value=36.0, value=18.0, step=0.5)
+        with f2: caption_pt = st.number_input("Caption (pt)", min_value=8.0, max_value=20.0, value=11.0, step=0.5)
+
+    cfg = BibbiaCfg(margin_mm=float(margin_mm), gap_mm=float(gap_mm), header_pt=float(header_pt), caption_pt=float(caption_pt), show_missing_boxes=bool(show_missing))
+    logo_bytes = (LOGO_PATH.read_bytes() if LOGO_PATH.exists() else None)
+
+    if st.button("Genera PDF Bibbia (A3)", type="primary"):
+        pdf = make_bibbia_pdf(variants, mock_map, cfg, brand_logo=logo_bytes)
+        st.download_button("⬇️ Scarica PDF Bibbia", data=pdf, file_name="wupi_bibbia_A3.pdf", mime="application/pdf")
 
     with st.expander("Opzioni PDF A3", expanded=False):
         c1, c2, c3 = st.columns(3)
