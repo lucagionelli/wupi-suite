@@ -174,7 +174,6 @@ COLOR_ALIAS_MAP = {
   "gh": "grey_heather"
 }
 
-
 # --- Color matching helpers (used by Bibbia Maker) ---
 def color_to_canon_key(s: str) -> str:
     """Return canonical color key used for matching mockups. Keeps display color untouched elsewhere."""
@@ -202,7 +201,6 @@ def normalize_size(s: str) -> str:
     if not s2:
         return ""  # requested: keep blank if missing
     return SIZE_ALIAS.get(s2, s2)
-
 
 def _norm_colname(c: str) -> str:
     c2 = str(c).strip().lower()
@@ -267,7 +265,6 @@ def json_loads(s: str) -> Dict:
     import json
     return json.loads(s)
 
-
 def load_costs() -> Dict:
     try:
         return json_loads(COSTS_PATH.read_text(encoding="utf-8"))
@@ -311,47 +308,8 @@ def _parse_taglie_items(taglie_str: str) -> list[tuple[str, int]]:
     items.sort(key=lambda x: sort_size_key(x[0]))
     return items
 
-def _draw_pills_line(c: canvas.Canvas, x: float, y: float, items: list[tuple[str, int]], max_w: float, font_pt: float = 9.5):
-    cur_x = x
-    line_y = y
-    ph = 6.2 * mm
-    for taglia, qty in items:
-        label = f"{taglia} {qty}"
-        c.setFont("Helvetica-Bold", font_pt)
-        tw = c.stringWidth(label, "Helvetica-Bold", font_pt)
-        pw = tw + 8 * mm
-        if cur_x + pw > x + max_w:
-            cur_x = x
-            line_y -= ph + 1.3 * mm
-        c.setFillGray(0.92)
-        c.roundRect(cur_x, line_y - ph + 1.4*mm, pw, ph, 2.8*mm, stroke=0, fill=1)
-        c.setFillGray(0)
-        c.drawString(cur_x + 3.2*mm, line_y - 2.0*mm, label)
-        cur_x += pw + 1.8 * mm
-    return line_y
-
-def _draw_multiline(c: canvas.Canvas, txt: str, x: float, y: float, max_w: float, font_name: str = "Helvetica", font_pt: float = 8.5, leading: float = 4.0 * mm):
-    c.setFont(font_name, font_pt)
-    for raw_line in str(txt).splitlines():
-        words = raw_line.split()
-        line = ""
-        for w0 in words:
-            cand = (line + " " + w0).strip()
-            if c.stringWidth(cand, font_name, font_pt) <= max_w:
-                line = cand
-            else:
-                if line:
-                    c.drawString(x, y, line)
-                    y -= leading
-                line = w0
-        if line:
-            c.drawString(x, y, line)
-            y -= leading
-    return y
-
 def key_row(sku: str, prod: str, color: str) -> str:
     return f"{sku}||{prod}||{color}"
-
 
 def normalize_key(k: str) -> str:
     try:
@@ -361,7 +319,6 @@ def normalize_key(k: str) -> str:
         return key_row(clean_str(parts[0]), clean_str(parts[1]), clean_str(parts[2]))
     except Exception:
         return clean_str(k)
-
 
 def canon_key(sku: str, prod: str, color: str) -> str:
     # Canonical comparison key (case-insensitive, trimmed, no 'nan')
@@ -432,10 +389,6 @@ def pivot_report(df: pd.DataFrame) -> pd.DataFrame:
     return piv
 
 def render_pivot_html(piv: pd.DataFrame, confirmed: set[str]) -> None:
-    """Renderizza la tabella pivot con colonna Totale sticky a destra.
-    Le righe confermate (SKU+Prodotto+Colore) diventano verdi.
-    """
-    # Hide zeros
     view = piv.copy()
     for c in [s for s in SIZE_ORDER if s in view.columns]:
         view[c] = view[c].replace({0: ""})
@@ -489,6 +442,7 @@ tr.confirmed td.tot {{ background:{GREEN}; }}
 
     html.append('</tbody></table></div>')
     st.markdown("".join(html), unsafe_allow_html=True)
+
 def cards_css() -> None:
     st.markdown(f"""
 <style>
@@ -557,7 +511,6 @@ def render_color_cards(df: pd.DataFrame, sku: str, prod: str, confirmed: set[str
         blocks.append((clean_str(color), sum(q for _, q in items), items))
     blocks.sort(key=lambda x: x[0])
 
-    # grid 3 columns responsive using Streamlit columns (no query params -> no reset)
     cols = st.columns(3)
     for i, (color, tot, items) in enumerate(blocks):
         col = cols[i % 3]
@@ -595,7 +548,6 @@ def render_color_cards(df: pd.DataFrame, sku: str, prod: str, confirmed: set[str
                     st.session_state["confirmed"] = set(confirmed)
                     st.rerun()
 
-    # Conferma/Annulla tutto lo SKU in fondo, a destra
     _, r1, r2 = st.columns([6, 2, 2])
     with r1:
         if st.button("✓ Conferma tutto lo SKU", key=f"all_{sku}_{prod}", use_container_width=True):
@@ -614,6 +566,7 @@ def render_color_cards(df: pd.DataFrame, sku: str, prod: str, confirmed: set[str
             save_state(state)
             st.session_state["confirmed"] = set(confirmed)
             st.rerun()
+
 def global_css() -> None:
     st.markdown("""
 <style>
@@ -622,15 +575,8 @@ a, a:visited { color:#000; }
 *:focus { outline:none !important; }
 button:focus { box-shadow: 0 0 0 2px rgba(0,0,0,.25) !important; }
 button:active { box-shadow: 0 0 0 2px rgba(0,0,0,.25) !important; }
-
-/* File uploader: Italian button label */
 [data-testid="stFileUploader"] button > div { display:none !important; }
-[data-testid="stFileUploader"] button:after {
-  content:"Carica il file";
-  font-weight:700;
-}
-
-/* Gap below pivot before SKU selector */
+[data-testid="stFileUploader"] button:after { content:"Carica il file"; font-weight:700; }
 .wupi-gap-after-pivot { height: 14px; }
 </style>
 """, unsafe_allow_html=True)
@@ -651,22 +597,11 @@ class LabelCfg:
     strip_modello: bool = False
 
 def make_labels_pdf(df: pd.DataFrame, logo_bytes: bytes | None, cfg: LabelCfg) -> bytes:
-    """
-    PDF 152x102mm orizzontale.
-    - "Docenti / ATA" sempre primo foglio.
-    - Logo WUPI in alto a sinistra (piccolo).
-    - Classe/Docenti-Ata in alto a destra, allineata a destra (max 2 righe, no overlap con logo).
-    - Righe in colonne, TUTTE allineate a SINISTRA:
-        Ordine | Articolo | Colore | Taglia | Nome Cognome
-      Nessuna colonna deve sovrapporsi alla successiva: truncation + ellipsis.
-    - Se un gruppo va su più pagine: mostra 1/2, 2/2...
-    """
     from reportlab.lib.utils import ImageReader
     from reportlab.pdfbase.pdfmetrics import stringWidth
 
     w = cfg.w_mm * mm
     h = cfg.h_mm * mm
-
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=(w, h))
 
@@ -686,28 +621,19 @@ def make_labels_pdf(df: pd.DataFrame, logo_bytes: bytes | None, cfg: LabelCfg) -
         key=lambda x: (0 if str(x) == "Docenti / ATA" else 1, str(x)),
     )
 
-    # Layout
     x_left = cfg.margin_mm * mm
     x_right = w - cfg.margin_mm * mm
     y_top = h - cfg.margin_mm * mm
-
     logo_h = 12 * mm
-    logo_w = (cfg.logo_w_mm * 1.15) * mm  # +15%
+    logo_w = (cfg.logo_w_mm * 1.15) * mm
     gap = 6 * mm
-
-    
-    # Column LEFT positions and widths (152x102) — balanced spacing
     gap_col = 1.2 * mm
 
     usable_w = x_right - x_left
-
     col_ord_x = x_left
-    col_ord_w = 14 * mm  # 4 chars ordine
-
+    col_ord_w = 14 * mm
     remaining = usable_w - col_ord_w - (4 * gap_col)
 
-    # Distribute remaining width more evenly:
-    # Articolo a bit smaller, more room for Colore/Taglia/Nome
     col_art_w  = remaining * 0.44
     col_col_w  = remaining * 0.18
     col_size_w = remaining * 0.12
@@ -718,41 +644,23 @@ def make_labels_pdf(df: pd.DataFrame, logo_bytes: bytes | None, cfg: LabelCfg) -
     col_size_x = col_col_x + col_col_w + gap_col
     col_name_x = col_size_x + col_size_w + gap_col
 
-
-
-    # Slightly smaller font (requested) to avoid overlap
     row_pt = max(7.0, float(cfg.row_pt))
     header_pt = max(7.5, float(getattr(cfg, "header_pt", row_pt)))
-
-    row_h = max(3.6, float(getattr(cfg, "row_h_mm", 4.2))) * mm  # fit up to ~12 rows
+    row_h = max(3.6, float(getattr(cfg, "row_h_mm", 4.2))) * mm
 
     def fit(text: str, max_w: float, font: str, size: float) -> str:
         t = (text or "").strip()
-        if not t:
-            return ""
-        if stringWidth(t, font, size) <= max_w:
-            return t
+        if not t: return ""
+        if stringWidth(t, font, size) <= max_w: return t
         s = t
         while s and stringWidth(s + "…", font, size) > max_w:
             s = s[:-1]
         return (s + "…") if s else "…"
 
-    def fit_font_keep_full(text: str, max_w: float, font: str, size: float, min_size: float = 6.5) -> float:
-        from reportlab.pdfbase.pdfmetrics import stringWidth
-        t = (text or "").strip()
-        if not t:
-            return size
-        s = size
-        while s > min_size and stringWidth(t, font, s) > max_w:
-            s -= 0.25
-        return max(min_size, s)
-
     def wrap_two_lines_right(t: str, max_w: float, font: str, size: float):
         t = (t or "").strip()
-        if not t:
-            return [""]
-        if stringWidth(t, font, size) <= max_w:
-            return [t]
+        if not t: return [""]
+        if stringWidth(t, font, size) <= max_w: return [t]
         words = t.split()
         lines, cur = [], ""
         for w0 in words:
@@ -760,13 +668,10 @@ def make_labels_pdf(df: pd.DataFrame, logo_bytes: bytes | None, cfg: LabelCfg) -
             if stringWidth(cand, font, size) <= max_w:
                 cur = cand
             else:
-                if cur:
-                    lines.append(cur)
+                if cur: lines.append(cur)
                 cur = w0
-                if len(lines) == 1:
-                    break
-        if len(lines) < 2:
-            lines.append(cur)
+                if len(lines) == 1: break
+        if len(lines) < 2: lines.append(cur)
         if stringWidth(lines[-1], font, size) > max_w:
             lines[-1] = fit(lines[-1], max_w, font, size)
         return lines[:2]
@@ -819,7 +724,6 @@ def make_labels_pdf(df: pd.DataFrame, logo_bytes: bytes | None, cfg: LabelCfg) -
                 raw_art = str(r.get("Nome Prodotto", "") or "")
                 raw_art = raw_art.strip()
                 if cfg.strip_modello:
-                    # rimuove la parola "Modello" lasciando il nome del modello (es: "| Modello Joker" -> "| Joker")
                     raw_art = re.sub(r"(?i)\bmodello\b\s*", "", raw_art)
                 if len(raw_art) > 20:
                     raw_art = raw_art[:20] + "…"
@@ -827,7 +731,6 @@ def make_labels_pdf(df: pd.DataFrame, logo_bytes: bytes | None, cfg: LabelCfg) -
                 colore = fit(str(r.get("Colore", "") or ""), col_col_w, "Helvetica", row_pt)
                 taglia = fit(str(r.get("Taglia", "") or ""), col_size_w, "Helvetica", row_pt)
                 persona_raw = str(r.get("Studente", "") or "").strip()
-                # Nome Cognome: MAI ellissi (se lungo, riduco il font per farlo stare)
                 name_size = row_pt
                 while name_size > 6.5 and stringWidth(persona_raw, "Helvetica", name_size) > col_name_w:
                     name_size -= 0.2
@@ -848,7 +751,6 @@ def make_labels_pdf(df: pd.DataFrame, logo_bytes: bytes | None, cfg: LabelCfg) -
     buf.seek(0)
     return buf.getvalue()
 
-
 # -------------------------
 # Ordini da pagare (Pending)
 # -------------------------
@@ -856,15 +758,12 @@ def normalize_pagamento(v) -> str:
     return clean_str(v).lower()
 
 def to_number_it(v) -> float:
-    """Parsa numeri in formato IT/EN (es: 10,50 ; 1.234,56 ; 10.50 ; 1,234.56)."""
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return 0.0
     if isinstance(v, (int, float)):
         return float(v)
     s = str(v).strip()
-    if not s:
-        return 0.0
-    # tieni solo cifre, separatori e segno
+    if not s: return 0.0
     import re as _re
     s = _re.sub(r"[^\d\.,\-]", "", s)
 
@@ -872,23 +771,17 @@ def to_number_it(v) -> float:
     has_comma = "," in s
 
     if has_dot and has_comma:
-        # quale è il decimale? l'ultimo separatore vince
         last_dot = s.rfind(".")
         last_comma = s.rfind(",")
         if last_comma > last_dot:
-            # comma decimale, dot migliaia
             s = s.replace(".", "")
             s = s.replace(",", ".")
         else:
-            # dot decimale, comma migliaia
             s = s.replace(",", "")
     elif has_comma and not has_dot:
-        # 10,50 -> 10.50 ; 1.234,56 (già pulito) non può capitare qui perché ha dot
         s = s.replace(".", "")
         s = s.replace(",", ".")
     else:
-        # solo dot o nessun separatore: ok
-        # se è tipo 1.234.567 (solo migliaia) rimuovi dot
         import re as _re2
         thousands_pattern = _re2.compile(r"^-?\d{1,3}(\.\d{3})+(\.\d+)?$")
         if thousands_pattern.match(s):
@@ -904,22 +797,12 @@ def to_number_it(v) -> float:
         return 0.0
 
 def build_pending_model(df: pd.DataFrame) -> dict:
-    """
-    Replica la logica del pending-report_v10.html:
-    - filtra Pagamento == 'pending'
-    - consolida per N. Ordine (unico)
-    - se Classe vuota => Docenti/ATA + nominativo da Docente/ATA
-    - altrimenti Cognome + Nome
-    - Importo da 'Importo ordine'
-    """
     required = ["N. Ordine","Classe","Cognome Studente","Nome Studente","Docente/ATA","Pagamento","Importo ordine"]
-    ensure_cols(df, [c for c in required if c in df.columns] + ["N. Ordine"])  # N. Ordine deve esistere
+    ensure_cols(df, [c for c in required if c in df.columns] + ["N. Ordine"])
 
     d = df.copy()
-    # normalizza colonne richieste (se mancano, crea vuote per messaggi più chiari)
     for c in required:
-        if c not in d.columns:
-            d[c] = ""
+        if c not in d.columns: d[c] = ""
         d[c] = d[c].map(clean_str)
 
     pending = d[d["Pagamento"].map(normalize_pagamento).eq("pending")].copy()
@@ -927,8 +810,7 @@ def build_pending_model(df: pd.DataFrame) -> dict:
     seen = {}
     for _, r in pending.iterrows():
         order_id = clean_str(r["N. Ordine"])
-        if not order_id or order_id in seen:
-            continue
+        if not order_id or order_id in seen: continue
 
         raw_classe = clean_str(r["Classe"])
         is_doc = (raw_classe == "")
@@ -950,7 +832,6 @@ def build_pending_model(df: pd.DataFrame) -> dict:
         }
 
     unique_orders = list(seen.values())
-    # group by class
     by_class = {}
     for o in unique_orders:
         by_class.setdefault(o["classe"], []).append(o)
@@ -976,18 +857,11 @@ def build_pending_model(df: pd.DataFrame) -> dict:
     }
 
 def pending_pdf_per_class_students(model: dict) -> bytes:
-    """
-    PDF "Dettaglio studenti: un foglio per classe" + pagina finale Totale generale.
-    - Una pagina per ogni classe: tabella Studente | Importo (€) con TOTALE CLASSE.
-    - Docenti/ATA sempre prima.
-    """
     from reportlab.lib.pagesizes import A4
     from reportlab.pdfbase.pdfmetrics import stringWidth
-
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
-
     margin = 18 * mm
     row_h = 6 * mm
 
@@ -996,16 +870,13 @@ def pending_pdf_per_class_students(model: dict) -> bytes:
 
     for classe in model["classes"]:
         y = h - margin
-
         c.setFont("Helvetica-Bold", 18)
         c.drawString(margin, y, f"Classe: {classe}")
         y -= 10 * mm
-
         c.setFont("Helvetica-Bold", 11)
         c.drawString(margin, y, "Studente")
         c.drawRightString(w - margin, y, "Importo (€)")
         y -= 7 * mm
-
         c.setFont("Helvetica", 11)
 
         tot_cls = 0.0
@@ -1056,19 +927,11 @@ def pending_pdf_per_class_students(model: dict) -> bytes:
     buf.seek(0)
     return buf.getvalue()
 
-
 def pending_pdf_totals_only(model: dict) -> bytes:
-    """
-    PDF "Riepilogo totali: un foglio unico" con Totale generale.
-    - Tabella: Classe | Totale da raccogliere (€)
-    - Docenti/ATA sempre prima.
-    """
     from reportlab.lib.pagesizes import A4
-
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
-
     margin = 18 * mm
     y = h - margin
 
@@ -1078,16 +941,13 @@ def pending_pdf_totals_only(model: dict) -> bytes:
     c.setFont("Helvetica-Bold", 18)
     c.drawString(margin, y, "Riepilogo ordini pending")
     y -= 10 * mm
-
     c.setFont("Helvetica", 11)
     c.drawString(margin, y, "Totali per classe (Pagamento = pending)")
     y -= 10 * mm
-
     c.setFont("Helvetica-Bold", 12)
     c.drawString(margin, y, "Classe")
     c.drawRightString(w - margin, y, "Totale da raccogliere (€)")
     y -= 8 * mm
-
     c.setFont("Helvetica", 12)
 
     class_totals = []
@@ -1125,7 +985,6 @@ def page_pending(df_raw: pd.DataFrame) -> None:
     st.subheader("💸 Ordini da pagare")
     st.caption("Estrae gli ordini con Pagamento = pending, consolida per N. Ordine e raggruppa per classe (Docenti/ATA se Classe vuota).")
 
-    # Validazione colonne
     required = ["N. Ordine","Classe","Cognome Studente","Nome Studente","Docente/ATA","Pagamento","Importo ordine"]
     missing = [c for c in required if c not in df_raw.columns]
     if missing:
@@ -1156,7 +1015,6 @@ def page_pending(df_raw: pd.DataFrame) -> None:
         st.dataframe(det, use_container_width=True, hide_index=True)
 
 
-
 # -------------------------
 # Bibbia maker (A3) — da XLSX + mockup batch
 # -------------------------
@@ -1169,7 +1027,6 @@ class BibbiaCfg:
     show_missing_boxes: bool = True
 
 def _norm_key(s: str) -> str:
-    """Normalize for filename matching: lower, spaces/hyphens -> underscore, strip non-alnum/_."""
     s = clean_str(s).lower()
     s = s.replace("-", "_").replace(" ", "_")
     s = re.sub(r"[\s]+", "_", s)
@@ -1178,15 +1035,6 @@ def _norm_key(s: str) -> str:
     return s
 
 def _sku_base(sku: str) -> str:
-    """
-    Some files can have a short prefix like 'A_' or 'AW_' before the real SKU.
-    - If SKU starts with 1–2 letters + '_' then keep the part after underscore.
-    - Otherwise keep as-is.
-    Examples:
-      A_BS333 -> BS333
-      AW_BS333 -> BS333
-      MKT_6163 -> MKT_6163 (kept)
-    """
     s = clean_str(sku)
     if "_" in s:
         p1, p2 = s.split("_", 1)
@@ -1194,157 +1042,78 @@ def _sku_base(sku: str) -> str:
             return p2
     return s
 
-
 def sku_base_key(sku: str) -> str:
-    """Normalize SKU token from filenames / Excel.
-
-    Examples:
-      - 'A_BS333' -> 'BS333'
-      - 'AW_BS333' -> 'BS333'
-      - 'MKT_6163' -> '6163'
-    Strategy: keep only alnum, split on separators, take last chunk.
-    """
     s = clean_str(sku).upper()
-    if not s:
-        return ""
-    # normalize separators
+    if not s: return ""
     s = re.sub(r"[^A-Z0-9]+", "_", s)
     parts = [p for p in s.split("_") if p]
-    if not parts:
-        return ""
+    if not parts: return ""
     return parts[-1]
 
-
 def product_model_key(nome_prodotto: str) -> str:
-    """Extract a 'model' discriminator from Nome Prodotto.
-
-    Examples:
-      - 'Over Hoodie | Modello Poker' -> 'poker'
-      - 'Essential Hoodie | Skate' -> 'skate'
-      - 'Tote Bag' -> ''
-    """
     s = clean_str(nome_prodotto)
-    if not s:
-        return ""
-    # Take right part after | if present
+    if not s: return ""
     part = s.split("|", 1)[1].strip() if "|" in s else s
     part_low = part.lower()
-    # Remove leading 'modello'
     part_low = re.sub(r"^\s*modello\s+", "", part_low, flags=re.IGNORECASE)
-    # Keep only alnum, collapse spaces/underscores
     part_low = re.sub(r"[^a-z0-9]+", "_", part_low)
     part_low = re.sub(r"_+", "_", part_low).strip("_")
     return part_low
 
 def find_mockup_bytes(mock_map: dict, sku_key: str, model_key: str, col_key: str, side: str) -> bytes | None:
-    """
-    Strict lookup:
-    1) exact SKU + MODEL + COLOR + SIDE
-    2) exact SKU + EMPTY_MODEL + COLOR + SIDE
-    3) exact SKU + MODEL + COLOR + SIDELESS
-    4) exact SKU + EMPTY_MODEL + COLOR + SIDELESS
-
-    Never use another model as fallback.
-    """
-
     side = side or ""
     model_key = (model_key or "").strip()
 
     # 1. exact with model
     k = (sku_key, model_key, col_key, side)
-    if k in mock_map:
-        return mock_map[k]
+    if k in mock_map: return mock_map[k]
 
     # 2. generic only if filename has no model
     k = (sku_key, "", col_key, side)
-    if k in mock_map:
-        return mock_map[k]
+    if k in mock_map: return mock_map[k]
 
     # 3. side-less exact with model
     k = (sku_key, model_key, col_key, "")
-    if k in mock_map:
-        return mock_map[k]
+    if k in mock_map: return mock_map[k]
 
     # 4. side-less generic only if filename has no model
     k = (sku_key, "", col_key, "")
-    if k in mock_map:
-        return mock_map[k]
+    if k in mock_map: return mock_map[k]
 
     return None
 
-
-
 def parse_mockup_files(files: list) -> dict:
-    """Parse batch mockup uploads.
-
-    Supported filename patterns (very permissive):
-      - SKU_color.jpg
-      - SKU_model_color_fronte.jpg
-      - SKU_model_color_retro.png
-      - Optional prefix before SKU in Excel (e.g. A_BS333) is ignored via sku_base_key().
-      - Color can be canonical (grey_heather) or any alias code (GY, BK, etc.).
-      - Side tokens accepted: fronte/front/f, retro/back/r.
-    Returns:
-      dict[(sku_key, model_key, color_key, side_key)] -> image bytes
-      side_key can be '' (side-less), treated as valid fallback for both sides.
-    """
-
     def norm_token(t: str) -> str:
         t = (t or "").strip().lower()
         t = re.sub(r"[^a-z0-9]+", "_", t)
         t = re.sub(r"_+", "_", t).strip("_")
         return t
 
-    # Build alias lookup once from direct alias->canonical map
     alias2canon: dict[str, str] = {}
     for a, canon in COLOR_ALIAS_MAP.items():
         alias2canon[norm_token(a)] = canon
         alias2canon[norm_token(canon)] = canon
 
     def detect_color(tokens: list[str]) -> tuple[str, int | None, str]:
-        """Return (color_key, start_index, raw_color_key).
-
-        - color_key: canonical color when possible (via COLOR_ALIAS_TO_CANON), otherwise raw.
-        - start_index: where the color tokens start within `tokens` (model tokens are tokens[:start_index]).
-        - raw_color_key: normalized raw color token (underscored).
-
-        This is intentionally permissive:
-        - supports joined suffixes (e.g. grey + heather -> grey_heather)
-        - supports raw colors not present in the alias dictionary (e.g. sand)
-        """
-        if not tokens:
-            return "", None, ""
-
-        # Try suffix joins first (up to 3 tokens)
+        if not tokens: return "", None, ""
         max_len = min(3, len(tokens))
         for L in range(max_len, 0, -1):
             raw = norm_token("_".join(tokens[-L:]))
-            if not raw:
-                continue
+            if not raw: continue
             canon = alias2canon.get(raw)
-            if canon:
-                return canon, len(tokens) - L, raw
-            # If no alias match, still allow raw for 1-token colors (e.g. sand)
-            if L == 1:
-                return raw, len(tokens) - 1, raw
-
-        # Fallback scan any token
+            if canon: return canon, len(tokens) - L, raw
+            if L == 1: return raw, len(tokens) - 1, raw
         for i, tok in enumerate(tokens):
             key = norm_token(tok)
-            if key in alias2canon:
-                return alias2canon[key], i, key
-
-        # Last resort: last token as raw
+            if key in alias2canon: return alias2canon[key], i, key
         raw = norm_token(tokens[-1])
         return raw, len(tokens) - 1, raw
 
     def detect_side(tokens: list[str]) -> tuple[str, int | None]:
         for i, tok in enumerate(tokens):
             k = norm_token(tok)
-            if k in ("fronte", "front", "f"):
-                return "fronte", i
-            if k in ("retro", "back", "r"):
-                return "retro", i
+            if k in ("fronte", "front", "f"): return "fronte", i
+            if k in ("retro", "back", "r"): return "retro", i
         return "", None
 
     out: dict[tuple[str, str, str, str], bytes] = {}
@@ -1353,55 +1122,39 @@ def parse_mockup_files(files: list) -> dict:
         name = getattr(f, "name", "")
         base = Path(name).stem
         parts = [p for p in re.split(r"[\s_\-]+", base) if p]
-        if not parts:
-            continue
+        if not parts: continue
 
         sku_tok = parts[0]
-        # Keep same format used in variants (SKU_KEY is normalized), otherwise lookups won't match.
         sku_key = _norm_key(sku_base_key(sku_tok))
-
-        # Remaining tokens: attempt to detect side + color, everything else is model discriminator
         rest = parts[1:]
 
         side_key, side_i = detect_side(rest)
-
-        # For color/model parsing, remove side token if present
         rest_wo_side = [t for j, t in enumerate(rest) if not (side_i is not None and j == side_i)]
-
         color_key, color_start, raw_color = detect_color(rest_wo_side)
 
-        # Model tokens are those before the color starts
         model_tokens = rest_wo_side[:color_start] if color_start is not None else []
         model_key = norm_token("_".join(model_tokens))
 
-        # Save image bytes
         try:
             data = f.getvalue()
         except Exception:
-            try:
-                data = f.read()
-            except Exception:
-                continue
+            try: data = f.read()
+            except Exception: continue
 
-        # Store multiple keys to maximize match probability.
+        # Salva l'immagine con il modello esatto rilevato
         out[(sku_key, model_key, color_key, side_key)] = data
         if raw_color and raw_color != color_key:
             out[(sku_key, model_key, raw_color, side_key)] = data
-        # Also allow lookups without model discriminator
-        if model_key:
-            out[(sku_key, "", color_key, side_key)] = data
-            if raw_color and raw_color != color_key:
-                out[(sku_key, "", raw_color, side_key)] = data
+            
+        # N.B. rimosso il salvataggio automatico (if model_key: out[(sku_key, "", color_key...)] = data)
+        # In questo modo "College" non andrà a sovrascrivere l'immagine generica di base "".
 
     return out
-
-
 
 def bibbia_variants(df_norm: pd.DataFrame) -> pd.DataFrame:
     d = df_norm.copy()
     for col in ["SKU", "Nome Prodotto", "Colore", "Taglia", "Pezzi", "Nome incisione", "N. Ordine", "Classe"]:
-        if col not in d.columns:
-            d[col] = ""
+        if col not in d.columns: d[col] = ""
 
     d["SKU_BASE"] = d["SKU"].map(_sku_base)
     d["SKU_KEY"] = d["SKU_BASE"].map(_norm_key)
@@ -1421,12 +1174,9 @@ def bibbia_variants(df_norm: pd.DataFrame) -> pd.DataFrame:
         return " ".join([f"{t}:{q}" for t, q in items])
 
     bd = breakdown.groupby(["SKU", "Nome Prodotto", "Colore"], as_index=False).apply(fmt_breakdown)
-    if isinstance(bd, pd.Series):
-        bd = bd.reset_index().rename(columns={0: "Taglie"})
-    else:
-        bd = bd.rename(columns={None: "Taglie"})
-    if "Taglie" not in bd.columns:
-        bd["Taglie"] = ""
+    if isinstance(bd, pd.Series): bd = bd.reset_index().rename(columns={0: "Taglie"})
+    else: bd = bd.rename(columns={None: "Taglie"})
+    if "Taglie" not in bd.columns: bd["Taglie"] = ""
 
     tmp = d.copy()
     tmp["INC_RAW"] = tmp["Nome incisione"].map(clean_str)
@@ -1436,11 +1186,8 @@ def bibbia_variants(df_norm: pd.DataFrame) -> pd.DataFrame:
 
     def fmt_incisioni(g: pd.DataFrame) -> str:
         g = g.copy()
-
-        # Se non esiste nessuna incisione vera, non mostrare nulla
         personalizzati = g[g["INC_RAW"].ne("")]
-        if personalizzati.empty:
-            return ""
+        if personalizzati.empty: return ""
 
         neutri_qty = int(g[g["INC_RAW"].eq("")]["Pezzi"].sum())
         pers_qty = int(personalizzati["Pezzi"].sum())
@@ -1463,21 +1210,15 @@ def bibbia_variants(df_norm: pd.DataFrame) -> pd.DataFrame:
             left = f"#{ordn}" if ordn else ""
             mid = cls if cls else ""
             base = " · ".join([x for x in [left, mid, inc] if x])
-
-            if qty > 1:
-                rows.append(f"{base} ({qty})")
-            else:
-                rows.append(base)
+            if qty > 1: rows.append(f"{base} ({qty})")
+            else: rows.append(base)
 
         return "\n".join(rows)
 
     inc = tmp.groupby(["SKU", "Nome Prodotto", "Colore"], as_index=False).apply(fmt_incisioni)
-    if isinstance(inc, pd.Series):
-        inc = inc.reset_index().rename(columns={0: "Incisioni"})
-    else:
-        inc = inc.rename(columns={None: "Incisioni"})
-    if "Incisioni" not in inc.columns:
-        inc["Incisioni"] = ""
+    if isinstance(inc, pd.Series): inc = inc.reset_index().rename(columns={0: "Incisioni"})
+    else: inc = inc.rename(columns={None: "Incisioni"})
+    if "Incisioni" not in inc.columns: inc["Incisioni"] = ""
 
     tot = (
         d.groupby(["SKU", "Nome Prodotto", "Colore", "SKU_KEY", "COL_KEY", "MODEL_KEY"], as_index=False)["Pezzi"].sum()
@@ -1501,17 +1242,14 @@ def bibbia_variants(df_norm: pd.DataFrame) -> pd.DataFrame:
     return out
 
 def _draw_image_fit(c: canvas.Canvas, img_bytes: bytes, x: float, y: float, w: float, h: float):
-    """Draw image preserving aspect ratio inside box (x,y,w,h), with bottom-left origin."""
     img = ImageReader(io.BytesIO(img_bytes))
     iw, ih = img.getSize()
-    if iw <= 0 or ih <= 0:
-        return
+    if iw <= 0 or ih <= 0: return
     scale = min(w / iw, h / ih)
     dw, dh = iw * scale, ih * scale
     dx = x + (w - dw) / 2
     dy = y + (h - dh) / 2
     c.drawImage(img, dx, dy, width=dw, height=dh, preserveAspectRatio=True, mask="auto")
-
 
 def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, brand_logo: bytes | None = None) -> bytes:
     w, h = landscape(A3)
@@ -1525,10 +1263,8 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
 
     logo_img = None
     if brand_logo:
-        try:
-            logo_img = ImageReader(io.BytesIO(brand_logo))
-        except Exception:
-            logo_img = None
+        try: logo_img = ImageReader(io.BytesIO(brand_logo))
+        except Exception: logo_img = None
 
     for _, r in variants.iterrows():
         sku = str(r.get("SKU", ""))
@@ -1611,7 +1347,6 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
             f"SKU: {sku_base}   Colore: {col}   Totale: {totale}",
         )
 
-        # Se c'è box incisioni, le pills usano meno spazio
         pills_left_x = margin + 6 * mm_to_pt
         pills_y = margin + footer_h - 18 * mm_to_pt
         pills_max_w = (w - 2 * margin - 12 * mm_to_pt)
@@ -1626,14 +1361,17 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
         cur_x = pills_left_x
 
         if items:
-            pill_font_regular = 16
-            pill_font_bold = 16
+            pill_font_regular = 15
+            pill_font_bold = 15
             pill_h = 24
-            pill_radius = 10
+            pill_radius = 12
             pad_x = 10
             gap_inner = 8
             gap_between = 10
-            text_y = pills_y + 3
+            
+            # Allineamento verticale calcolato per il font 15pt
+            rect_y = pills_y - 6
+            text_baseline = rect_y + 7.5
 
             for taglia, qty in items:
                 taglia_txt = str(taglia)
@@ -1641,7 +1379,6 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
 
                 c.setFont("Helvetica", pill_font_regular)
                 w1 = c.stringWidth(taglia_txt, "Helvetica", pill_font_regular)
-
                 c.setFont("Helvetica-Bold", pill_font_bold)
                 w2 = c.stringWidth(qty_txt, "Helvetica-Bold", pill_font_bold)
 
@@ -1651,18 +1388,18 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
                     break
 
                 c.setFillGray(0.92)
-                c.roundRect(cur_x, pills_y - 8, pw, pill_h, pill_radius, stroke=0, fill=1)
+                c.roundRect(cur_x, rect_y, pw, pill_h, pill_radius, stroke=0, fill=1)
                 c.setFillGray(0)
 
                 c.setFont("Helvetica", pill_font_regular)
-                c.drawString(cur_x + pad_x, text_y, taglia_txt)
+                c.drawString(cur_x + pad_x, text_baseline, taglia_txt)
 
                 c.setFont("Helvetica-Bold", pill_font_bold)
-                c.drawString(cur_x + pad_x + w1 + gap_inner, text_y, qty_txt)
+                c.drawString(cur_x + pad_x + w1 + gap_inner, text_baseline, qty_txt)
 
                 cur_x += pw + gap_between
 
-        # Personalizzazioni a destra, senza riquadro
+        # Personalizzazioni a destra
         if has_incisioni:
             bx = w - margin - box_w
             by = margin + 6 * mm_to_pt
@@ -1681,11 +1418,9 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
                     break
 
                 txt = line.strip()
-                if not txt:
-                    continue
+                if not txt: continue
 
                 c.setFont("Helvetica", 8.5)
-
                 while c.stringWidth(txt, "Helvetica", 8.5) > max_w and len(txt) > 2:
                     txt = txt[:-1]
 
@@ -1695,20 +1430,17 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
                 c.drawString(bx, y, txt)
                 y -= 9
         
-        # Genera la pagina alla fine dell'elaborazione della singola variante (iterrows)
         c.showPage()
 
     c.save()
     buf.seek(0)
     return buf.getvalue()
 
-
 def finance_summary(df_norm: pd.DataFrame, costs: Dict[str, float] | None = None):
     costs = costs or {}
     d = df_norm.copy()
     for col in ["SKU", "Pezzi", "Prezzo unitario", "Prezzo acquisto", "Classe", "Nome Prodotto", "Colore", "N. Ordine"]:
-        if col not in d.columns:
-            d[col] = 0 if col in ("Pezzi", "Prezzo unitario", "Prezzo acquisto") else ""
+        if col not in d.columns: d[col] = 0 if col in ("Pezzi", "Prezzo unitario", "Prezzo acquisto") else ""
     d["Pezzi"] = pd.to_numeric(d["Pezzi"], errors="coerce").fillna(0).astype(int)
     d["Prezzo unitario"] = pd.to_numeric(d["Prezzo unitario"], errors="coerce").fillna(0.0)
     d["Prezzo vendita ex IVA"] = d["Prezzo unitario"] / 1.22
@@ -1772,14 +1504,10 @@ def page_finanze(df_norm: pd.DataFrame) -> None:
     _, total_orders, total_pieces, total_amount, total_margin, by_class, by_product, by_color = finance_summary(df_norm, costs)
 
     c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.metric("Ordini", total_orders)
-    with c2:
-        st.metric("Pezzi totali", total_pieces)
-    with c3:
-        st.metric("Importo ex IVA", _eur(total_amount))
-    with c4:
-        st.metric("Margine", _eur(total_margin))
+    with c1: st.metric("Ordini", total_orders)
+    with c2: st.metric("Pezzi totali", total_pieces)
+    with c3: st.metric("Importo ex IVA", _eur(total_amount))
+    with c4: st.metric("Margine", _eur(total_margin))
 
     st.markdown("### Prezzi acquisto")
     cost_view = by_product[["SKU", "Nome Prodotto", "Prezzo acquisto"]].copy()
@@ -1798,10 +1526,8 @@ def page_finanze(df_norm: pd.DataFrame) -> None:
     if st.button("💾 Salva prezzi acquisto"):
         new_costs = load_costs()
         for _, r in edited.iterrows():
-            try:
-                new_costs[str(r["Chiave"])] = float(r["Prezzo acquisto"])
-            except Exception:
-                pass
+            try: new_costs[str(r["Chiave"])] = float(r["Prezzo acquisto"])
+            except Exception: pass
         save_costs(new_costs)
         st.success("Prezzi acquisto salvati.")
         st.rerun()
@@ -1813,20 +1539,17 @@ def page_finanze(df_norm: pd.DataFrame) -> None:
 
     with t1:
         show = by_class.copy()
-        for c in ["Importo ex IVA", "Margine"]:
-            show[c] = show[c].map(_eur)
+        for c in ["Importo ex IVA", "Margine"]: show[c] = show[c].map(_eur)
         st.dataframe(show, use_container_width=True, hide_index=True)
 
     with t2:
         show = by_product.copy()
-        for c in ["Prezzo vendita ex IVA", "Prezzo acquisto", "Importo ex IVA", "Margine"]:
-            show[c] = show[c].map(_eur)
+        for c in ["Prezzo vendita ex IVA", "Prezzo acquisto", "Importo ex IVA", "Margine"]: show[c] = show[c].map(_eur)
         st.dataframe(show, use_container_width=True, hide_index=True)
 
     with t3:
         show = by_color.copy()
-        for c in ["Prezzo vendita ex IVA", "Prezzo acquisto", "Importo ex IVA", "Margine"]:
-            show[c] = show[c].map(_eur)
+        for c in ["Prezzo vendita ex IVA", "Prezzo acquisto", "Importo ex IVA", "Margine"]: show[c] = show[c].map(_eur)
         st.dataframe(show, use_container_width=True, hide_index=True)
 
 
@@ -1834,8 +1557,7 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
     st.subheader("Bibbia maker (A3) — da XLSX + mockup batch")
     st.caption("Carica i mockup in batch (JPG/PNG) con naming permissivo: SKU_modello_colore_fronte / SKU_modello_colore_retro. Una pagina A3 per ogni SKU+Prodotto+Colore.")
 
-    if "bibbia_uploader_ver" not in st.session_state:
-        st.session_state["bibbia_uploader_ver"] = 0
+    if "bibbia_uploader_ver" not in st.session_state: st.session_state["bibbia_uploader_ver"] = 0
 
     top1, top2 = st.columns([4, 1])
     with top1:
@@ -1859,12 +1581,9 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
     variants["Retro"]  = variants.apply(lambda r: "✅" if find_mockup_bytes(mock_map, r["SKU_KEY"], r.get("MODEL_KEY",""), r["COL_KEY"], "retro") is not None else "❌", axis=1)
 
     k1, k2, k3 = st.columns(3)
-    with k1:
-        st.metric("Varianti", len(variants))
-    with k2:
-        st.metric("Complete (F+R)", int(((variants["Fronte"] == "✅") & (variants["Retro"] == "✅")).sum()))
-    with k3:
-        st.metric("Con mancanti", int(((variants["Fronte"] == "❌") | (variants["Retro"] == "❌")).sum()))
+    with k1: st.metric("Varianti", len(variants))
+    with k2: st.metric("Complete (F+R)", int(((variants["Fronte"] == "✅") & (variants["Retro"] == "✅")).sum()))
+    with k3: st.metric("Con mancanti", int(((variants["Fronte"] == "❌") | (variants["Retro"] == "❌")).sum()))
 
     st.write("Controllo match (preview)")
     st.dataframe(
@@ -1877,10 +1596,8 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
     if not missing.empty:
         st.markdown("### Associa manualmente i mancanti")
         st.caption("Per le righe con ❌ puoi caricare manualmente il file corretto. I file manuali vengono ricordati.")
-        try:
-            raw_manual = json_loads(BIBBIA_MANUAL_PATH.read_text(encoding="utf-8"))
-        except Exception:
-            raw_manual = {}
+        try: raw_manual = json_loads(BIBBIA_MANUAL_PATH.read_text(encoding="utf-8"))
+        except Exception: raw_manual = {}
 
         for _, r in missing.iterrows():
             title = f'{r["SKU"]} — {r["Nome Prodotto"]} — {r["Colore"]}'
@@ -1912,19 +1629,14 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
 
     with st.expander("Opzioni PDF A3", expanded=False):
         c1, c2, c3 = st.columns(3)
-        with c1:
-            margin_mm = st.number_input("Margine (mm)", min_value=4.0, max_value=30.0, value=10.0, step=1.0)
-        with c2:
-            gap_mm = st.number_input("Spazio tra fronte/retro (mm)", min_value=2.0, max_value=30.0, value=6.0, step=1.0)
-        with c3:
-            show_missing = st.checkbox("Mostra riquadri MANCANTE", value=True)
+        with c1: margin_mm = st.number_input("Margine (mm)", min_value=4.0, max_value=30.0, value=10.0, step=1.0)
+        with c2: gap_mm = st.number_input("Spazio tra fronte/retro (mm)", min_value=2.0, max_value=30.0, value=6.0, step=1.0)
+        with c3: show_missing = st.checkbox("Mostra riquadri MANCANTE", value=True)
 
     with st.expander("Font", expanded=False):
         f1, f2 = st.columns(2)
-        with f1:
-            header_pt = st.number_input("Titolo (pt)", min_value=12.0, max_value=36.0, value=18.0, step=0.5)
-        with f2:
-            caption_pt = st.number_input("Caption (pt)", min_value=8.0, max_value=20.0, value=11.0, step=0.5)
+        with f1: header_pt = st.number_input("Titolo (pt)", min_value=12.0, max_value=36.0, value=18.0, step=0.5)
+        with f2: caption_pt = st.number_input("Caption (pt)", min_value=8.0, max_value=20.0, value=11.0, step=0.5)
 
     cfg = BibbiaCfg(margin_mm=float(margin_mm), gap_mm=float(gap_mm), header_pt=float(header_pt), caption_pt=float(caption_pt), show_missing_boxes=bool(show_missing))
     logo_bytes = (LOGO_PATH.read_bytes() if LOGO_PATH.exists() else None)
@@ -1987,31 +1699,14 @@ def main() -> None:
             ].copy()
 
         render_pivot_html(piv_view, confirmed)
-
         st.markdown('<div class="wupi-gap-after-pivot"></div>', unsafe_allow_html=True)
 
-        # Select SKU+Prod (distinct rows, no merging)
         pairs = piv_full[["SKU", "Nome Prodotto"]].drop_duplicates().sort_values(["SKU", "Nome Prodotto"], kind="stable")
         options = [f'{r["SKU"]} — {r["Nome Prodotto"]}' for _, r in pairs.iterrows()]
-        if "pair_idx" not in st.session_state:
-            st.session_state["pair_idx"] = 0
+        
+        if "pair_idx" not in st.session_state: st.session_state["pair_idx"] = 0
+        if "pair_widget_ver" not in st.session_state: st.session_state["pair_widget_ver"] = 0
 
-            # Auto-advance to next SKU after ✓ Conferma tutto lo SKU
-            if st.session_state.get('advance_next_sku') and len(options) > 0:
-                st.session_state['advance_next_sku'] = False
-                if st.session_state.get('pair_idx', 0) < len(options) - 1:
-                    st.session_state['pair_idx'] = st.session_state.get('pair_idx', 0) + 1
-                    st.session_state['pair_widget_ver'] = st.session_state.get('pair_widget_ver', 0) + 1
-                    st.rerun()
-
-
-        # selector row with arrows aligned
-        if "pair_idx" not in st.session_state:
-            st.session_state["pair_idx"] = 0
-        if "pair_widget_ver" not in st.session_state:
-            st.session_state["pair_widget_ver"] = 0
-
-        # Auto-advance to next SKU after ✓ Conferma tutto lo SKU
         if st.session_state.get("advance_next_sku", False) and len(options) > 0:
             st.session_state["advance_next_sku"] = False
             if st.session_state["pair_idx"] < len(options) - 1:
@@ -2022,7 +1717,7 @@ def main() -> None:
         with a:
             if st.button("‹", key="prev_pair", use_container_width=True):
                 st.session_state["pair_idx"] = max(0, st.session_state["pair_idx"] - 1)
-                st.session_state["pair_widget_ver"] += 1  # forces selectbox re-init
+                st.session_state["pair_widget_ver"] += 1 
                 st.rerun()
         with b:
             sel = st.selectbox(
@@ -2038,14 +1733,12 @@ def main() -> None:
                 st.session_state["pair_widget_ver"] += 1
                 st.rerun()
 
-        # sync idx from selected value
         if len(options) > 0 and sel in options:
             st.session_state["pair_idx"] = options.index(sel)
 
         sku = sel.split(" — ", 1)[0].strip()
         prod = sel.split(" — ", 1)[1].strip()
 
-        # Render cards
         render_color_cards(df, sku, prod, confirmed, sig, state)
 
 
@@ -2074,8 +1767,6 @@ def main() -> None:
         if st.button("Genera PDF etichette", type="primary"):
             pdf = make_labels_pdf(df, logo_bytes, cfg)
             st.download_button("⬇️ Scarica PDF", data=pdf, file_name="wupi_etichette.pdf", mime="application/pdf")
-
-
 
     with tabs[2]:
         page_pending(df_raw)
