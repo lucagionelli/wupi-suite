@@ -1053,21 +1053,13 @@ def sku_base_key(sku: str) -> str:
 def product_model_key(nome_prodotto: str) -> str:
     s = clean_str(nome_prodotto)
     if not s: return ""
-    # Prende la parte a destra del pipe "|" se presente
     part = s.split("|", 1)[1].strip() if "|" in s else s
     part_low = part.lower()
-    
-    # Rimuove la dicitura "modello"
     part_low = re.sub(r"^\s*modello\s+", "", part_low, flags=re.IGNORECASE)
-    
-    # Rimuove termini di abbigliamento generici per facilitare il match con i nomi file corti
-    termini_generici = r"\b(hoodie|t\-shirt|tshirt|shirt|sweatshirt|felpa|maglia|maglietta|pant|pants|pantalone|pantaloni|short|shorts|zip|bag)\b"
-    part_low = re.sub(termini_generici, "", part_low, flags=re.IGNORECASE)
-    
-    # Pulisce i caratteri rimanenti
+    clothing_pattern = r"(?i)\b(hoodie|t\-shirt|tshirt|shirt|sweatshirt|felpa|maglia|maglietta|pant|pants|pantalone|pantaloni|short|shorts|zip|crew|giacca|jacket|kway|k\-way|college)\b"
+    part_low = re.sub(clothing_pattern, "", part_low)
     part_low = re.sub(r"[^a-z0-9]+", "_", part_low)
     part_low = re.sub(r"_+", "_", part_low).strip("_")
-    
     return part_low
 
 def find_mockup_bytes(mock_map: dict, sku_key: str, model_key: str, col_key: str, side: str) -> bytes | None:
@@ -1143,7 +1135,8 @@ def parse_mockup_files(files: list) -> dict:
         color_key, color_start, raw_color = detect_color(rest_wo_side)
 
         model_tokens = rest_wo_side[:color_start] if color_start is not None else []
-        model_key = norm_token("_".join(model_tokens))
+        raw_model_str = " ".join(model_tokens)
+        model_key = product_model_key(raw_model_str)
 
         try:
             data = f.getvalue()
@@ -1151,13 +1144,9 @@ def parse_mockup_files(files: list) -> dict:
             try: data = f.read()
             except Exception: continue
 
-        # Salva l'immagine con il modello esatto rilevato
         out[(sku_key, model_key, color_key, side_key)] = data
         if raw_color and raw_color != color_key:
             out[(sku_key, model_key, raw_color, side_key)] = data
-            
-        # N.B. rimosso il salvataggio automatico (if model_key: out[(sku_key, "", color_key...)] = data)
-        # In questo modo "College" non andrà a sovrascrivere l'immagine generica di base "".
 
     return out
 
@@ -1193,6 +1182,10 @@ def bibbia_variants(df_norm: pd.DataFrame) -> pd.DataFrame:
     tmp["ORD_SHOW"] = tmp["N. Ordine"].map(clean_str)
     tmp["CLS_SHOW"] = tmp["Classe"].map(clean_str)
     tmp.loc[tmp["CLS_SHOW"].eq(""), "CLS_SHOW"] = "Docenti / ATA"
+
+    clothing_pattern = r"(?i)\b(hoodie|t\-shirt|tshirt|shirt|sweatshirt|felpa|maglia|maglietta|pant|pants|pantalone|pantaloni|short|shorts|zip|crew|giacca|jacket|kway|k\-way|college)\b"
+    is_clothing = tmp["Nome Prodotto"].astype(str).str.contains(clothing_pattern, regex=True)
+    tmp.loc[is_clothing, "INC_RAW"] = ""
 
     def fmt_incisioni(g: pd.DataFrame) -> str:
         g = g.copy()
@@ -1379,7 +1372,6 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
             gap_inner = 8
             gap_between = 10
             
-            # Allineamento verticale calcolato per il font 15pt
             rect_y = pills_y - 6
             text_baseline = rect_y + 7.5
 
@@ -1611,15 +1603,12 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
 
         for _, r in missing.iterrows():
             title = f'{r["SKU"]} — {r["Nome Prodotto"]} — {r["Colore"]}'
-            # Creiamo un ID univoco e stabile basato sul titolo esatto per evitare chiavi duplicate
             uid = hashlib.md5(title.encode()).hexdigest()[:10]
-            
             with st.expander(title, expanded=False):
                 c1, c2 = st.columns(2)
                 keybase = [str(r["SKU_KEY"]), str(r.get("MODEL_KEY","")), str(r["COL_KEY"])]
                 with c1:
                     st.write(f"Fronte: {r['Fronte']}")
-                    # Usiamo l'UID per la key di Streamlit
                     fup = st.file_uploader("Carica fronte", type=["png","jpg","jpeg"], key=f"manual_front_{uid}")
                     if fup is not None:
                         save_path = APP_SUPPORT / "manual_mockups" / f"{r['SKU_KEY']}__{r.get('MODEL_KEY','')}__{r['COL_KEY']}__fronte{Path(fup.name).suffix or '.jpg'}"
@@ -1630,7 +1619,6 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
                         st.success("Fronte associato.")
                 with c2:
                     st.write(f"Retro: {r['Retro']}")
-                    # Usiamo l'UID per la key di Streamlit
                     bup = st.file_uploader("Carica retro", type=["png","jpg","jpeg"], key=f"manual_back_{uid}")
                     if bup is not None:
                         save_path = APP_SUPPORT / "manual_mockups" / f"{r['SKU_KEY']}__{r.get('MODEL_KEY','')}__{r['COL_KEY']}__retro{Path(bup.name).suffix or '.jpg'}"
@@ -1642,7 +1630,7 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
         if st.button("🔄 Ricarica abbinamenti manuali"):
             st.rerun()
 
-   with st.expander("Opzioni PDF A3", expanded=False):
+    with st.expander("Opzioni PDF A3", expanded=False):
         c1, c2, c3 = st.columns(3)
         with c1: margin_mm = st.number_input("Margine (mm)", min_value=4.0, max_value=30.0, value=10.0, step=1.0, key="bibbia_margin_mm")
         with c2: gap_mm = st.number_input("Spazio tra fronte/retro (mm)", min_value=2.0, max_value=30.0, value=6.0, step=1.0, key="bibbia_gap_mm")
@@ -1652,24 +1640,6 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
         f1, f2 = st.columns(2)
         with f1: header_pt = st.number_input("Titolo (pt)", min_value=12.0, max_value=36.0, value=18.0, step=0.5, key="bibbia_header_pt")
         with f2: caption_pt = st.number_input("Caption (pt)", min_value=8.0, max_value=20.0, value=11.0, step=0.5, key="bibbia_caption_pt")
-
-    cfg = BibbiaCfg(margin_mm=float(margin_mm), gap_mm=float(gap_mm), header_pt=float(header_pt), caption_pt=float(caption_pt), show_missing_boxes=bool(show_missing))
-    logo_bytes = (LOGO_PATH.read_bytes() if LOGO_PATH.exists() else None)
-
-    if st.button("Genera PDF Bibbia (A3)", type="primary"):
-        pdf = make_bibbia_pdf(variants, mock_map, cfg, brand_logo=logo_bytes)
-        st.download_button("⬇️ Scarica PDF Bibbia", data=pdf, file_name="wupi_bibbia_A3.pdf", mime="application/pdf")
-
-    with st.expander("Opzioni PDF A3", expanded=False):
-        c1, c2, c3 = st.columns(3)
-        with c1: margin_mm = st.number_input("Margine (mm)", min_value=4.0, max_value=30.0, value=10.0, step=1.0)
-        with c2: gap_mm = st.number_input("Spazio tra fronte/retro (mm)", min_value=2.0, max_value=30.0, value=6.0, step=1.0)
-        with c3: show_missing = st.checkbox("Mostra riquadri MANCANTE", value=True)
-
-    with st.expander("Font", expanded=False):
-        f1, f2 = st.columns(2)
-        with f1: header_pt = st.number_input("Titolo (pt)", min_value=12.0, max_value=36.0, value=18.0, step=0.5)
-        with f2: caption_pt = st.number_input("Caption (pt)", min_value=8.0, max_value=20.0, value=11.0, step=0.5)
 
     cfg = BibbiaCfg(margin_mm=float(margin_mm), gap_mm=float(gap_mm), header_pt=float(header_pt), caption_pt=float(caption_pt), show_missing_boxes=bool(show_missing))
     logo_bytes = (LOGO_PATH.read_bytes() if LOGO_PATH.exists() else None)
