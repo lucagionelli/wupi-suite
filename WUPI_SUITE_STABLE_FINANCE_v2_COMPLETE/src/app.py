@@ -1050,7 +1050,7 @@ def sku_base_key(sku: str) -> str:
     if not parts: return ""
     return parts[-1]
 
-ddef product_model_key(nome_prodotto: str) -> str:
+def product_model_key(nome_prodotto: str) -> str:
     s = clean_str(nome_prodotto)
     if not s: return ""
     part = s.split("|", 1)[1].strip() if "|" in s else s
