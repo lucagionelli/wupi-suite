@@ -448,44 +448,41 @@ tr.confirmed td.tot {{ background: rgba(235, 235, 235, 0.9); backdrop-filter: bl
 def cards_css() -> None:
     st.markdown("""
 <style>
-.wupi-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:18px; }
+.wupi-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:16px; }
 @media (max-width: 1100px) { .wupi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 720px) { .wupi-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); } }
 
-/* Cards in stile Apple Glass */
+/* Cards solide e pulite */
 .wupi-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 20px;
-  padding: 18px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background-color: #ffffff;
+  border: 1px solid #e5e5ea;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 .wupi-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
 }
-/* Card Confermata - Niente più verde, ora è grigio elegante con bordo marcato */
+/* Card confermata grigio solido */
 .wupi-card.confirmed {
-  background: rgba(240, 240, 240, 0.85);
+  background-color: #f5f5f7;
   border: 2px solid #1d1d1f;
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.05);
 }
 .card-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px; }
-.color-name { font-weight:800; font-size:18px; letter-spacing:-0.4px; color: #1d1d1f; }
-.color-tot { font-weight:700; font-size:16px; color: #86868b; }
+.color-name { font-weight:700; font-size:17px; letter-spacing:-0.3px; color: #1d1d1f; }
+.color-tot { font-weight:600; font-size:15px; color: #86868b; }
 .chips { display:flex; flex-wrap:wrap; gap:8px; }
 
-/* Taglie (pills) */
+/* Taglie (pills) solide */
 .chip {
   display:inline-flex; gap:6px; align-items:center;
-  padding: 6px 12px; border-radius: 12px;
-  background: rgba(0,0,0,0.04);
-  font-size: 14px; font-weight: 500; color: #555;
+  padding: 4px 10px; border-radius: 8px;
+  background-color: #f0f0f2;
+  font-size: 13px; font-weight: 500; color: #555;
 }
-.chip .q { font-weight:800; font-size:15px; color: #1d1d1f; }
+.chip .q { font-weight:700; font-size:14px; color: #1d1d1f; }
 .btn-row { display:flex; gap:12px; justify-content:center; margin-top:18px; }
 </style>
 """, unsafe_allow_html=True)
@@ -565,68 +562,54 @@ def render_color_cards(df: pd.DataFrame, sku: str, prod: str, confirmed: set[str
 def global_css() -> None:
     st.markdown("""
 <style>
-/* Sfondo generale in stile macOS / Apple Glass (mesh gradient grigio scuro/chiaro) */
+/* Sfondo principale pulito e solido */
 .stApp {
-    background-color: #f5f5f7;
-    background-image: 
-        radial-gradient(at 0% 0%, #ffffff 0, transparent 50%), 
-        radial-gradient(at 100% 0%, #e8e8ed 0, transparent 50%),
-        radial-gradient(at 50% 100%, #eaeaea 0, transparent 50%);
-    background-attachment: fixed;
+    background-color: #ffffff;
     color: #1d1d1f;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* Override Bottoni Streamlit (Toni Nero, Grigio, Bianco) */
+/* Stile bottoni pulito (Nero/Grigio/Bianco) */
 .stButton > button {
-    background-color: rgba(255, 255, 255, 0.6) !important;
+    background-color: #ffffff !important;
     color: #1d1d1f !important;
-    border: 1px solid rgba(0, 0, 0, 0.15) !important;
-    border-radius: 12px !important;
-    backdrop-filter: blur(10px) !important;
-    font-weight: 600 !important;
+    border: 1px solid #d2d2d7 !important;
+    border-radius: 8px !important;
+    font-weight: 500 !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
     transition: all 0.2s ease !important;
 }
 .stButton > button:hover {
-    background-color: #ffffff !important;
-    border-color: rgba(0, 0, 0, 0.3) !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
-    color: #000000 !important;
+    border-color: #86868b !important;
+    background-color: #f5f5f7 !important;
 }
-/* Bottoni Primary (es. Genera PDF) */
+/* Bottone Primary */
 .stButton > button[kind="primary"] {
     background-color: #1d1d1f !important;
     color: #ffffff !important;
-    border: 1px solid #000000 !important;
+    border: 1px solid #1d1d1f !important;
 }
 .stButton > button[kind="primary"]:hover {
     background-color: #333336 !important;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.15) !important;
-    color: #ffffff !important;
 }
-/* Rimuovi focus rossi/blu e link */
 *:focus { outline:none !important; }
-button:focus { box-shadow: 0 0 0 2px rgba(0,0,0,.2) !important; }
+button:focus { box-shadow: 0 0 0 2px rgba(0,0,0,.1) !important; }
 a, a:visited { color:#1d1d1f; }
 
-/* Upload Files Box Glass */
+/* Box di caricamento File piatto */
 [data-testid="stFileUploader"] {
-    background: rgba(255, 255, 255, 0.6) !important;
-    backdrop-filter: blur(20px) !important;
-    border: 1px dashed rgba(0, 0, 0, 0.2) !important;
-    border-radius: 16px !important;
+    background-color: #fafafc !important;
+    border: 1px dashed #d2d2d7 !important;
+    border-radius: 12px !important;
     padding: 1.5rem !important;
 }
-[data-testid="stFileUploader"] button > div { display:none !important; }
-[data-testid="stFileUploader"] button:after { content:"Carica file"; font-weight:600; }
 
-/* Metriche e Dataframe Glass */
+/* Metriche e Dataframe piatti */
 [data-testid="stMetric"], [data-testid="stDataFrame"] > div {
-    background: rgba(255, 255, 255, 0.6) !important;
-    backdrop-filter: blur(16px) !important;
-    border-radius: 16px !important;
-    border: 1px solid rgba(0, 0, 0, 0.05) !important;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.02) !important;
+    background-color: #ffffff !important;
+    border-radius: 12px !important;
+    border: 1px solid #e5e5ea !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02) !important;
 }
 [data-testid="stMetric"] { padding: 16px; }
 
@@ -1643,26 +1626,30 @@ def page_finanze(df_norm: pd.DataFrame) -> None:
 
 def page_bibbia(df_norm: pd.DataFrame) -> None:
     st.subheader("Bibbia maker (A3) — da XLSX + mockup batch")
-    st.caption("Carica i mockup in batch (JPG/PNG) con naming permissivo: SKU_modello_colore_fronte / SKU_modello_colore_retro. Una pagina A3 per ogni SKU+Prodotto+Colore.")
+    st.caption("Carica i mockup in batch (JPG/PNG) con naming permissivo: SKU_modello_colore_fronte / SKU_modello_colore_retro.")
 
     if "bibbia_uploader_ver" not in st.session_state: st.session_state["bibbia_uploader_ver"] = 0
 
-    top1, top2 = st.columns([4, 1])
-    with top1:
-        mock_files = st.file_uploader(
-            "Mockup batch (PNG/JPG)",
-            type=["png", "jpg", "jpeg"],
-            accept_multiple_files=True,
-            key=f"bibbia_mockups_{st.session_state['bibbia_uploader_ver']}",
-        )
-    with top2:
-        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-        if st.button("🗑 Elimina tutto", use_container_width=True):
+    # Uploader a tutta larghezza
+    mock_files = st.file_uploader(
+        "Carica qui le immagini Mockup",
+        type=["png", "jpg", "jpeg"],
+        accept_multiple_files=True,
+        key=f"bibbia_mockups_{st.session_state['bibbia_uploader_ver']}",
+    )
+    
+    # Bottone elimina messo ordinatamente sotto
+    col_btn, _ = st.columns([1, 4])
+    with col_btn:
+        if st.button("🗑 Svuota immagini", use_container_width=True):
             st.session_state["bibbia_uploader_ver"] += 1
             st.rerun()
+            
+    st.markdown("<br>", unsafe_allow_html=True)
 
     mock_map = parse_mockup_files(mock_files or [])
     mock_map.update(load_manual_mockups())
+    # ... (il resto della funzione page_bibbia prosegue normalmente da qui)
 
     variants = bibbia_variants(df_norm)
     variants["Fronte"] = variants.apply(lambda r: "✅" if find_mockup_bytes(mock_map, r["SKU_KEY"], r.get("MODEL_KEY",""), r["COL_KEY"], "fronte") is not None else "❌", axis=1)
@@ -1787,9 +1774,65 @@ def main() -> None:
                 | piv_full["Colore"].astype(str).str.contains(qq, case=False, na=False)
             ].copy()
 
-        render_pivot_html(piv_view, confirmed)
-        st.markdown('<div class="wupi-gap-after-pivot"></div>', unsafe_allow_html=True)
+        def render_pivot_html(piv: pd.DataFrame, confirmed: set[str]) -> None:
+    view = piv.copy()
+    for c in [s for s in SIZE_ORDER if s in view.columns]:
+        view[c] = view[c].replace({0: ""})
+    view["Totale"] = piv["Totale"].astype(int)
 
+    cols = list(view.columns)
+
+    css = f"""<style>
+/* Tabella piatta e solida */
+.table-wrap {{ 
+    overflow:auto; 
+    background-color: #ffffff;
+    border: 1px solid #e5e5ea; 
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+}}
+table.wupi {{ border-collapse:separate; border-spacing:0; width:100%; font-size:14px; }}
+table.wupi th, table.wupi td {{ padding:12px; border-bottom:1px solid #f0f0f2; vertical-align:middle; color: #1d1d1f; }}
+table.wupi th {{ 
+    position:sticky; top:0; 
+    background-color: #fafafc; 
+    z-index:2; font-weight:600; letter-spacing: -0.2px;
+}}
+table.wupi td {{ background-color: #ffffff; }}
+table.wupi td.tot, table.wupi th.tot {{ position:sticky; right:0; z-index:3; font-weight:700; }}
+table.wupi th.tot {{ background-color: #fafafc; border-left: 1px solid #f0f0f2; }}
+table.wupi td.tot {{ background-color: #fafafc; border-left: 1px solid #f0f0f2; }}
+tr.confirmed td {{ background-color: #f5f5f7; }}
+tr.confirmed td.tot {{ background-color: #eaeaef; }}
+.center {{ text-align:center; }}
+</style>"""
+
+    html: list[str] = []
+    html.append(css)
+    html.append('<div class="table-wrap"><table class="wupi">')
+    html.append('<thead><tr>')
+
+    for c in cols:
+        cls = "tot" if c == "Totale" else ""
+        align = "center" if c in SIZE_ORDER + ["Totale"] else ""
+        html.append(f'<th class="{cls} {align}">{c}</th>')
+
+    html.append('</tr></thead><tbody>')
+
+    for _, r in view.iterrows():
+        k = normalize_key(key_row(clean_str(r.get("SKU", "")), clean_str(r.get("Nome Prodotto", "")), clean_str(r.get("Colore", ""))))
+        tr_cls = "confirmed" if k in confirmed else ""
+        html.append(f'<tr class="{tr_cls}">')
+        for c in cols:
+            cls = "tot" if c == "Totale" else ""
+            align = "center" if c in SIZE_ORDER + ["Totale"] else ""
+            val = r[c]
+            if pd.isna(val): val = ""
+            html.append(f'<td class="{cls} {align}">{val}</td>')
+        html.append('</tr>')
+
+    html.append('</tbody></table></div>')
+    st.markdown("".join(html), unsafe_allow_html=True)
         pairs = piv_full[["SKU", "Nome Prodotto"]].drop_duplicates().sort_values(["SKU", "Nome Prodotto"], kind="stable")
         options = [f'{r["SKU"]} — {r["Nome Prodotto"]}' for _, r in pairs.iterrows()]
         
