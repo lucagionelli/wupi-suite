@@ -1289,13 +1289,174 @@ def _draw_image_fit(c: canvas.Canvas, img_bytes: bytes, x: float, y: float, w: f
     dy = y + (h - dh) / 2
     c.drawImage(img, dx, dy, width=dw, height=dh, preserveAspectRatio=True, mask="auto")
 
-def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, brand_logo: bytes | None = None) -> bytes:
-    w, h = landscape(A3)
+def _draw_bibbia_variant(c: canvas.Canvas, r: pd.Series, mock_map: dict, cfg: BibbiaCfg, logo_img, w: float, h: float):
     mm_to_pt = mm
-
     margin = cfg.margin_mm * mm_to_pt
     gap = cfg.gap_mm * mm_to_pt
 
+    sku = str(r.get("SKU", ""))
+    sku_base = _sku_base(sku)
+    sku_key = str(r.get("SKU_KEY", _norm_key(sku_base)))
+
+    prod = str(r.get("Nome Prodotto", ""))
+    model_key = str(r.get("MODEL_KEY", product_model_key(prod)))
+
+    col = str(r.get("Colore", ""))
+    col_key = str(r.get("COL_KEY", _norm_key(col)))
+
+    taglie = str(r.get("Taglie", ""))
+    incisioni = str(r.get("Incisioni", ""))
+    totale = int(r.get("Totale", 0))
+
+    has_incisioni = clean_str(incisioni) != ""
+
+    header_h = 24 * mm_to_pt
+    footer_h = 34 * mm_to_pt
+
+    # 1. Logo
+    if logo_img:
+        c.drawImage(logo_img, margin, h - margin - 16 * mm_to_pt, width=26 * mm_to_pt, height=16 * mm_to_pt, preserveAspectRatio=True, mask="auto")
+
+    # 2. Intestazione (Titolo SKU e Colore)
+    c.setFillGray(0)
+    c.setFont("Helvetica-Bold", cfg.header_pt)
+    c.drawString(margin + (32 * mm_to_pt if logo_img else 0), h - margin - 10 * mm_to_pt, f"{sku_base} — {prod}")
+    c.drawRightString(w - margin, h - margin - 10 * mm_to_pt, f"{col}")
+
+    # 3. Disegno delle Immagini (Fronte / Retro)
+    img_y0 = margin + footer_h + gap
+    img_h = h - margin - header_h - img_y0
+    img_w = (w - 2 * margin - gap) / 2
+
+    box1 = (margin, img_y0, img_w, img_h)
+    box2 = (margin + img_w + gap, img_y0, img_w, img_h)
+
+    front = find_mockup_bytes(mock_map, sku_key, model_key, col_key, "fronte")
+    back = find_mockup_bytes(mock_map, sku_key, model_key, col_key, "retro")
+
+    if front:
+        _draw_image_fit(c, front, *box1)
+    elif cfg.show_missing_boxes:
+        c.setLineWidth(1)
+        c.setStrokeGray(0.8)
+        c.rect(*box1)
+        c.setFillGray(0.5)
+        c.setFont("Helvetica", 14)
+        c.drawCentredString(box1[0] + box1[2] / 2, box1[1] + box1[3] / 2, "FRONTE MANCANTE")
+
+    if back:
+        _draw_image_fit(c, back, *box2)
+    elif cfg.show_missing_boxes:
+        c.setLineWidth(1)
+        c.setStrokeGray(0.8)
+        c.rect(*box2)
+        c.setFillGray(0.5)
+        c.setFont("Helvetica", 14)
+        c.drawCentredString(box2[0] + box2[2] / 2, box2[1] + box2[3] / 2, "RETRO MANCANTE")
+
+    # 4. Testo SKU / Colore / Totale
+    c.setFillGray(0)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(margin, margin + footer_h - 8 * mm_to_pt, f"SKU: {sku_base}   Colore: {col}   Totale: {totale}")
+
+    box_w = 0
+    if has_incisioni:
+        box_w = 82 * mm_to_pt
+
+    # 5. Box delle Taglie (Pills)
+    pills_left_x = margin
+    pills_y = margin + footer_h - 20 * mm_to_pt
+    pills_max_w = (w - 2 * margin - box_w - 10 * mm_to_pt) if has_incisioni else (w - 2 * margin)
+
+    items = _parse_taglie_items(taglie)
+    cur_x = pills_left_x
+
+    if items:
+        pill_font_regular = 15
+        pill_font_bold = 15
+        pill_h = 26
+        pill_radius = 13
+        pad_x = 12
+        gap_inner = 8
+        gap_between = 12
+        
+        rect_y = pills_y - 6
+        text_baseline = rect_y + 8
+
+        for taglia, qty in items:
+            taglia_txt = str(taglia)
+            qty_txt = str(qty)
+
+            c.setFont("Helvetica", pill_font_regular)
+            w1 = c.stringWidth(taglia_txt, "Helvetica", pill_font_regular)
+            c.setFont("Helvetica-Bold", pill_font_bold)
+            w2 = c.stringWidth(qty_txt, "Helvetica-Bold", pill_font_bold)
+
+            pw = w1 + w2 + (pad_x * 2) + gap_inner
+
+            if cur_x + pw > pills_left_x + pills_max_w:
+                break
+
+            c.setFillColorRGB(0.92, 0.92, 0.93)
+            c.roundRect(cur_x, rect_y, pw, pill_h, pill_radius, stroke=0, fill=1)
+            
+            c.setFillGray(0)
+            c.setFont("Helvetica", pill_font_regular)
+            c.drawString(cur_x + pad_x, text_baseline, taglia_txt)
+
+            c.setFont("Helvetica-Bold", pill_font_bold)
+            c.drawString(cur_x + pad_x + w1 + gap_inner, text_baseline, qty_txt)
+
+            cur_x += pw + gap_between
+
+    # 6. Box Personalizzazioni in basso a destra
+    if has_incisioni:
+        bx = w - margin - box_w
+        by = margin
+        box_h = footer_h
+
+        c.setFillColorRGB(0.94, 0.94, 0.95)
+        c.roundRect(bx, by, box_w, box_h, 8, stroke=0, fill=1)
+
+        c.setFillGray(0)
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(bx + 12, by + box_h - 16, "PERSONALIZZAZIONI")
+
+        lines = incisioni.split("\n")
+        if len(lines) >= 2:
+            neutri = lines[0]
+            pers = lines[1]
+            details = lines[2:]
+
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(bx + 12, by + box_h - 30, f"{neutri}   |   {pers}")
+            
+            c.setLineWidth(0.5)
+            c.setStrokeColorRGB(0.85, 0.85, 0.85)
+            c.line(bx + 12, by + box_h - 36, bx + box_w - 12, by + box_h - 36)
+
+            y = by + box_h - 50
+            max_w = box_w - 24
+            for line in details:
+                if y < by + 8:
+                    break
+                txt = line.strip()
+                if not txt: continue
+
+                c.setFillColorRGB(0.2, 0.2, 0.2)
+                c.circle(bx + 15, y + 2.5, 1.5, stroke=0, fill=1)
+
+                c.setFillGray(0)
+                c.setFont("Helvetica", 9)
+                while c.stringWidth(txt, "Helvetica", 9) > max_w - 12 and len(txt) > 2:
+                    txt = txt[:-1]
+                if txt != line.strip(): txt = txt.rstrip() + "…"
+
+                c.drawString(bx + 22, y, txt)
+                y -= 12
+
+def make_bibbia_pdf_single(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, brand_logo: bytes | None = None) -> bytes:
+    w, h = landscape(A3)
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=(w, h))
 
@@ -1305,187 +1466,62 @@ def make_bibbia_pdf(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, bran
         except Exception: logo_img = None
 
     for _, r in variants.iterrows():
-        sku = str(r.get("SKU", ""))
-        sku_base = _sku_base(sku)
-        sku_key = str(r.get("SKU_KEY", _norm_key(sku_base)))
+        _draw_bibbia_variant(c, r, mock_map, cfg, logo_img, w, h)
+        c.showPage()
 
-        prod = str(r.get("Nome Prodotto", ""))
-        model_key = str(r.get("MODEL_KEY", product_model_key(prod)))
+    c.save()
+    buf.seek(0)
+    return buf.getvalue()
 
-        col = str(r.get("Colore", ""))
-        col_key = str(r.get("COL_KEY", _norm_key(col)))
+def make_bibbia_pdf_grid(variants: pd.DataFrame, mock_map: dict, cfg: BibbiaCfg, brand_logo: bytes | None = None) -> bytes:
+    from reportlab.lib.pagesizes import A3
+    # A3 verticale come base della griglia
+    page_w, page_h = A3 
+    
+    # La dimensione "virtuale" è l'A3 orizzontale originale
+    vw, vh = landscape(A3) 
+    
+    cols = 2
+    rows = 4
+    
+    cell_w = page_w / cols
+    cell_h = page_h / rows
+    
+    # Scaliamo perfettamente l'A3 Orizzontale dentro la cella 1/8 di un A3 Verticale
+    scale_factor = cell_w / vw 
+    
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=(page_w, page_h))
 
-        taglie = str(r.get("Taglie", ""))
-        incisioni = str(r.get("Incisioni", ""))
-        totale = int(r.get("Totale", 0))
+    logo_img = None
+    if brand_logo:
+        try: logo_img = ImageReader(io.BytesIO(brand_logo))
+        except Exception: logo_img = None
 
-        has_incisioni = clean_str(incisioni) != ""
-
-        header_h = 24 * mm_to_pt
-        footer_h = 34 * mm_to_pt
-
-        # 1. Logo
-        if logo_img:
-            c.drawImage(
-                logo_img,
-                margin,
-                h - margin - 16 * mm_to_pt,
-                width=26 * mm_to_pt,
-                height=16 * mm_to_pt,
-                preserveAspectRatio=True,
-                mask="auto",
-            )
-
-        # 2. Intestazione (Titolo SKU e Colore)
-        c.setFillGray(0)
-        c.setFont("Helvetica-Bold", cfg.header_pt)
-        c.drawString(
-            margin + (32 * mm_to_pt if logo_img else 0),
-            h - margin - 10 * mm_to_pt,
-            f"{sku_base} — {prod}",
-        )
-        c.drawRightString(
-            w - margin,
-            h - margin - 10 * mm_to_pt,
-            f"{col}",
-        )
-
-        # 3. Disegno delle Immagini (Fronte / Retro)
-        img_y0 = margin + footer_h + gap
-        img_h = h - margin - header_h - img_y0
-        img_w = (w - 2 * margin - gap) / 2
-
-        box1 = (margin, img_y0, img_w, img_h)
-        box2 = (margin + img_w + gap, img_y0, img_w, img_h)
-
-        front = find_mockup_bytes(mock_map, sku_key, model_key, col_key, "fronte")
-        back = find_mockup_bytes(mock_map, sku_key, model_key, col_key, "retro")
-
-        if front:
-            _draw_image_fit(c, front, *box1)
-        elif cfg.show_missing_boxes:
-            c.setLineWidth(1)
-            c.setStrokeGray(0.8)
-            c.rect(*box1)
-            c.setFillGray(0.5)
-            c.setFont("Helvetica", 14)
-            c.drawCentredString(box1[0] + box1[2] / 2, box1[1] + box1[3] / 2, "FRONTE MANCANTE")
-
-        if back:
-            _draw_image_fit(c, back, *box2)
-        elif cfg.show_missing_boxes:
-            c.setLineWidth(1)
-            c.setStrokeGray(0.8)
-            c.rect(*box2)
-            c.setFillGray(0.5)
-            c.setFont("Helvetica", 14)
-            c.drawCentredString(box2[0] + box2[2] / 2, box2[1] + box2[3] / 2, "RETRO MANCANTE")
-
-        # 4. Testo SKU / Colore / Totale
-        c.setFillGray(0)
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(
-            margin,
-            margin + footer_h - 8 * mm_to_pt,
-            f"SKU: {sku_base}   Colore: {col}   Totale: {totale}",
-        )
-
-        box_w = 0
-        if has_incisioni:
-            box_w = 82 * mm_to_pt
-
-        # 5. Box delle Taglie (Pills)
-        pills_left_x = margin
-        pills_y = margin + footer_h - 20 * mm_to_pt
-        pills_max_w = (w - 2 * margin - box_w - 10 * mm_to_pt) if has_incisioni else (w - 2 * margin)
-
-        items = _parse_taglie_items(taglie)
-        cur_x = pills_left_x
-
-        if items:
-            pill_font_regular = 15
-            pill_font_bold = 15
-            pill_h = 26
-            pill_radius = 13
-            pad_x = 12
-            gap_inner = 8
-            gap_between = 12
-            
-            rect_y = pills_y - 6
-            text_baseline = rect_y + 8
-
-            for taglia, qty in items:
-                taglia_txt = str(taglia)
-                qty_txt = str(qty)
-
-                c.setFont("Helvetica", pill_font_regular)
-                w1 = c.stringWidth(taglia_txt, "Helvetica", pill_font_regular)
-                c.setFont("Helvetica-Bold", pill_font_bold)
-                w2 = c.stringWidth(qty_txt, "Helvetica-Bold", pill_font_bold)
-
-                pw = w1 + w2 + (pad_x * 2) + gap_inner
-
-                if cur_x + pw > pills_left_x + pills_max_w:
-                    break
-
-                c.setFillColorRGB(0.92, 0.92, 0.93)
-                c.roundRect(cur_x, rect_y, pw, pill_h, pill_radius, stroke=0, fill=1)
-                
-                c.setFillGray(0)
-                c.setFont("Helvetica", pill_font_regular)
-                c.drawString(cur_x + pad_x, text_baseline, taglia_txt)
-
-                c.setFont("Helvetica-Bold", pill_font_bold)
-                c.drawString(cur_x + pad_x + w1 + gap_inner, text_baseline, qty_txt)
-
-                cur_x += pw + gap_between
-
-        # 6. Box Personalizzazioni in basso a destra
-        if has_incisioni:
-            bx = w - margin - box_w
-            by = margin
-            box_h = footer_h
-
-            c.setFillColorRGB(0.94, 0.94, 0.95)
-            c.roundRect(bx, by, box_w, box_h, 8, stroke=0, fill=1)
-
-            c.setFillGray(0)
-            c.setFont("Helvetica-Bold", 11)
-            c.drawString(bx + 12, by + box_h - 16, "PERSONALIZZAZIONI")
-
-            lines = incisioni.split("\n")
-            if len(lines) >= 2:
-                neutri = lines[0]
-                pers = lines[1]
-                details = lines[2:]
-
-                c.setFont("Helvetica-Bold", 9)
-                c.drawString(bx + 12, by + box_h - 30, f"{neutri}   |   {pers}")
-                
-                c.setLineWidth(0.5)
-                c.setStrokeColorRGB(0.85, 0.85, 0.85)
-                c.line(bx + 12, by + box_h - 36, bx + box_w - 12, by + box_h - 36)
-
-                y = by + box_h - 50
-                max_w = box_w - 24
-                for line in details:
-                    if y < by + 8:
-                        break
-                    txt = line.strip()
-                    if not txt: continue
-
-                    c.setFillColorRGB(0.2, 0.2, 0.2)
-                    c.circle(bx + 15, y + 2.5, 1.5, stroke=0, fill=1)
-
-                    c.setFillGray(0)
-                    c.setFont("Helvetica", 9)
-                    while c.stringWidth(txt, "Helvetica", 9) > max_w - 12 and len(txt) > 2:
-                        txt = txt[:-1]
-                    if txt != line.strip(): txt = txt.rstrip() + "…"
-
-                    c.drawString(bx + 22, y, txt)
-                    y -= 12
+    count = 0
+    for _, r in variants.iterrows():
+        col_idx = count % cols
+        row_idx = (count // cols) % rows
         
+        px = col_idx * cell_w
+        py = page_h - (row_idx + 1) * cell_h
+        
+        c.saveState()
+        c.translate(px, py)
+        c.scale(scale_factor, scale_factor)
+        _draw_bibbia_variant(c, r, mock_map, cfg, logo_img, vw, vh)
+        c.restoreState()
+        
+        # Disegniamo una sottile linea grigia attorno alla cella come guida per il taglio
+        c.setLineWidth(0.5)
+        c.setStrokeColorRGB(0.85, 0.85, 0.85)
+        c.rect(px, py, cell_w, cell_h)
+        
+        count += 1
+        if count % (cols * rows) == 0:
+            c.showPage()
+            
+    if count % (cols * rows) != 0:
         c.showPage()
 
     c.save()
@@ -1632,8 +1668,8 @@ def upload_missing_modal(r, side):
             st.rerun()
 
 def page_bibbia(df_norm: pd.DataFrame) -> None:
-    st.subheader("Bibbia maker (A3) — da XLSX + mockup batch")
-    st.caption("Carica i mockup in batch (JPG/PNG) con naming permissivo: SKU_modello_colore_fronte / SKU_modello_colore_retro. Una pagina A3 per ogni SKU+Prodotto+Colore.")
+    st.subheader("Bibbia maker (A3)")
+    st.caption("Carica i mockup in batch (JPG/PNG) con naming permissivo: SKU_modello_colore_fronte / SKU_modello_colore_retro.")
 
     if "bibbia_uploader_ver" not in st.session_state: st.session_state["bibbia_uploader_ver"] = 0
 
@@ -1726,9 +1762,26 @@ def page_bibbia(df_norm: pd.DataFrame) -> None:
     cfg = BibbiaCfg(margin_mm=float(margin_mm), gap_mm=float(gap_mm), header_pt=float(header_pt), caption_pt=float(caption_pt), show_missing_boxes=bool(show_missing))
     logo_bytes = (LOGO_PATH.read_bytes() if LOGO_PATH.exists() else None)
 
-    if st.button("Genera PDF Bibbia (A3)", type="primary"):
-        pdf = make_bibbia_pdf(variants, mock_map, cfg, brand_logo=logo_bytes)
-        st.download_button("⬇️ Scarica PDF Bibbia", data=pdf, file_name="wupi_bibbia_A3.pdf", mime="application/pdf")
+    st.markdown("### Generazione PDF")
+    colA, colB = st.columns(2)
+    with colA:
+        if st.button("📄 Prepara PDF Singolo (1 per A3)", use_container_width=True):
+            st.session_state['bibbia_mode'] = 'single'
+            st.rerun()
+    with colB:
+        if st.button("🗂 Prepara PDF Griglia (8 per A3)", type="primary", use_container_width=True):
+            st.session_state['bibbia_mode'] = 'grid'
+            st.rerun()
+            
+    mode = st.session_state.get('bibbia_mode')
+    if mode == 'single':
+        pdf = make_bibbia_pdf_single(variants, mock_map, cfg, brand_logo=logo_bytes)
+        st.success("PDF Singolo pronto per il download!")
+        st.download_button("⬇️ Scarica PDF Singolo", data=pdf, file_name="wupi_bibbia_singola.pdf", mime="application/pdf", use_container_width=True)
+    elif mode == 'grid':
+        pdf = make_bibbia_pdf_grid(variants, mock_map, cfg, brand_logo=logo_bytes)
+        st.success("PDF Griglia pronto per il download!")
+        st.download_button("⬇️ Scarica PDF Griglia (8 in 1)", data=pdf, file_name="wupi_bibbia_griglia.pdf", mime="application/pdf", use_container_width=True)
 
 # -------------------------
 # UI
@@ -1743,7 +1796,7 @@ def main() -> None:
     top_l, top_r = st.columns([7, 1])
     with top_l:
         st.title("WUPI Suite")
-        st.caption(f"Build: STUDIO_v3_FLAT_CLEAN (stable) • {Path(__file__).resolve()}")
+        st.caption(f"Build: STUDIO_v4_GRID (stable) • {Path(__file__).resolve()}")
     with top_r:
         if LOGO_PATH.exists():
             st.image(str(LOGO_PATH), use_container_width=True)
