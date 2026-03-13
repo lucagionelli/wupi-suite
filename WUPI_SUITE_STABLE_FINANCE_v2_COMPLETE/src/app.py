@@ -1053,11 +1053,21 @@ def sku_base_key(sku: str) -> str:
 def product_model_key(nome_prodotto: str) -> str:
     s = clean_str(nome_prodotto)
     if not s: return ""
+    # Prende la parte a destra del pipe "|" se presente
     part = s.split("|", 1)[1].strip() if "|" in s else s
     part_low = part.lower()
+    
+    # Rimuove la dicitura "modello"
     part_low = re.sub(r"^\s*modello\s+", "", part_low, flags=re.IGNORECASE)
+    
+    # Rimuove termini di abbigliamento generici per facilitare il match con i nomi file corti
+    termini_generici = r"\b(hoodie|t\-shirt|tshirt|shirt|sweatshirt|felpa|maglia|maglietta|pant|pants|pantalone|pantaloni|short|shorts|zip|bag)\b"
+    part_low = re.sub(termini_generici, "", part_low, flags=re.IGNORECASE)
+    
+    # Pulisce i caratteri rimanenti
     part_low = re.sub(r"[^a-z0-9]+", "_", part_low)
     part_low = re.sub(r"_+", "_", part_low).strip("_")
+    
     return part_low
 
 def find_mockup_bytes(mock_map: dict, sku_key: str, model_key: str, col_key: str, side: str) -> bytes | None:
