@@ -1050,14 +1050,17 @@ def sku_base_key(sku: str) -> str:
     if not parts: return ""
     return parts[-1]
 
-def product_model_key(nome_prodotto: str) -> str:
+ddef product_model_key(nome_prodotto: str) -> str:
     s = clean_str(nome_prodotto)
     if not s: return ""
     part = s.split("|", 1)[1].strip() if "|" in s else s
     part_low = part.lower()
     part_low = re.sub(r"^\s*modello\s+", "", part_low, flags=re.IGNORECASE)
-    clothing_pattern = r"(?i)\b(hoodie|t\-shirt|tshirt|shirt|sweatshirt|felpa|maglia|maglietta|pant|pants|pantalone|pantaloni|short|shorts|zip|crew|giacca|jacket|kway|k\-way|college)\b"
+    
+    # Rimosso "college" da questa lista! Ora "College" viene trattato come modello specifico.
+    clothing_pattern = r"(?i)\b(hoodie|t\-shirt|tshirt|shirt|sweatshirt|felpa|maglia|maglietta|pant|pants|pantalone|pantaloni|short|shorts|zip|crew|giacca|jacket|kway|k\-way)\b"
     part_low = re.sub(clothing_pattern, "", part_low)
+    
     part_low = re.sub(r"[^a-z0-9]+", "_", part_low)
     part_low = re.sub(r"_+", "_", part_low).strip("_")
     return part_low
